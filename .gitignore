@@ -1,0 +1,14 @@
+target/
+*.class
+
+.idea/
+*.iml
+.vscode/
+.history/
+
+*.log
+*.local
+docker/.env
+
+.DS_Store
+Thumbs.db
