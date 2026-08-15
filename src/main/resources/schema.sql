@@ -1,4 +1,3 @@
--- ai_agent 初始化脚本（MySQL 首次启动自动执行）
 CREATE TABLE IF NOT EXISTS `app_user` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
     `username` VARCHAR(30) NOT NULL,

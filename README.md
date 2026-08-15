@@ -13,7 +13,7 @@ mvn spring-boot:run
 - `GET /api/ping`：健康检查
 - `POST /api/chat`：对话接口
 
-未配置 `AI_API_KEY` 时，`/api/chat` 返回 mock 回复；配置后调用 DeepSeek 兼容接口。
+未配置 `DEEPSEEK_API_KEY` 时，`/api/chat` 返回 mock 回复；配置后调用 DeepSeek 兼容接口。
 
 ## 中间件
 

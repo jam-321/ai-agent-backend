@@ -1,14 +1,40 @@
 server:
   port: 8080
+  servlet:
+    session:
+      cookie:
+        name: JSESSIONID
+        http-only: true
+        secure: ${COOKIE_SECURE:false}
+        same-site: lax
 
 spring:
   application:
     name: ai-agent-backend
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:ai_agent}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: ${MYSQL_USER:agent}
+    password: ${MYSQL_PASSWORD:agent123456}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  sql:
+    init:
+      mode: always
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:redis123456}
+      timeout: 2s
+  session:
+    store-type: redis
+    timeout: 7d
+    redis:
+      namespace: ai-agent:session
   ai:
     openai:
       # OpenAI 兼容协议：DeepSeek（国内可直连），可换成通义/OpenAI 等
       base-url: https://api.deepseek.com
-      api-key: ${AI_API_KEY:sk-dummy-not-configured}
+      api-key: ${DEEPSEEK_API_KEY:${AI_API_KEY:sk-dummy-not-configured}}
       chat:
         options:
           model: deepseek-chat

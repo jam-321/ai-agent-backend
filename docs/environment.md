@@ -9,6 +9,10 @@
 - Maven settings：`E:\soft\mavenAbout\2024_02_18\settings.xml`
 - 构建：`mvn -s E:\soft\mavenAbout\2024_02_18\settings.xml -DskipTests package`
 
+## 环境变量
+
+- `DEEPSEEK_API_KEY`：DeepSeek API Key（用户级环境变量，2026-08-15 已设置）。`application.yml` 通过 `${DEEPSEEK_API_KEY:${AI_API_KEY:sk-dummy-not-configured}}` 读取，旧名 `AI_API_KEY` 自动兼容。
+
 ## Docker
 
 - Docker Desktop：4.86.0

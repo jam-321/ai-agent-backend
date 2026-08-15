@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 /**
  * 对话服务：封装 Spring AI ChatClient 调用 LLM。
  *
- * <p>未配置 AI_API_KEY 时返回 mock 回复，方便前后端先联调，
+ * <p>未配置 DEEPSEEK_API_KEY 时返回 mock 回复，方便前后端先联调，
  * 配置后自动切换为真实 LLM 调用。</p>
  */
 @Service
@@ -30,7 +30,7 @@ public class ChatService {
             return "请输入消息内容。";
         }
         if (!llmEnabled) {
-            return "[mock] 尚未配置 AI_API_KEY，当前返回模拟回复。\n你刚才说：" + message;
+            return "[mock] 尚未配置 DEEPSEEK_API_KEY，当前返回模拟回复。\n你刚才说：" + message;
         }
         return chatClient.prompt()
                 .system(SYSTEM_PROMPT)

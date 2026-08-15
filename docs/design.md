@@ -58,7 +58,7 @@ flowchart LR
   - `service/`：`ChatService`（封装 ChatClient 调用）
   - `dto/`：请求/响应记录
 - Spring AI 接入 OpenAI 兼容协议：`spring.ai.openai.base-url=https://api.deepseek.com`，模型 `deepseek-chat`
-- API Key 通过环境变量 `AI_API_KEY` 注入，不写死在代码/配置里；未配置时返回 mock 回复，方便联调。
+- API Key 通过环境变量 `DEEPSEEK_API_KEY` 注入，不写死在代码/配置里；未配置时返回 mock 回复，方便联调。
 
 ## 6. 前端设计（Vue 3 + Vite）
 
