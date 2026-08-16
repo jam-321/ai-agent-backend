@@ -1,31 +1,60 @@
 package com.jam.agent.agent.runtime;
 
+import com.jam.agent.agent.event.EventPublisher;
 import com.jam.agent.agent.loop.AgentLoop;
 import com.jam.agent.agent.loop.ModelAdapter.RetryableModelException;
-import com.jam.agent.agent.event.EventPublisher;
 import com.jam.agent.agent.memory.ConversationContextManager;
 import java.util.List;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.stereotype.Component;
 
+/**
+ * Outer retry boundary for one Agent run.
+ *
+ * <p>Only model failures explicitly marked retryable restart the inner loop. Tool and
+ * persistence failures are not replayed.
+ */
 @Component
 public class AttemptRunner {
+
     private final AgentLoop loop;
     private final ConversationContextManager contextManager;
     private final EventPublisher events;
-    public AttemptRunner(AgentLoop loop, ConversationContextManager contextManager, EventPublisher events) {
-        this.loop=loop; this.contextManager=contextManager; this.events=events;
+
+    public AttemptRunner(
+            AgentLoop loop,
+            ConversationContextManager contextManager,
+            EventPublisher events) {
+        this.loop = loop;
+        this.contextManager = contextManager;
+        this.events = events;
     }
+
     public RunResult run(AgentExecutionContext context) {
-        List<Message> history=contextManager.rebuild(context.userId(), context.conversationId(), context.turnId());
-        Throwable last=null;
-        for(int attempt=1;attempt<=context.maxAttempts();attempt++) {
-            context.checkDeadline(); events.lifecycle(context, attempt, null, "attempt_start");
-            try { return new RunResult(attempt, loop.run(context, attempt, history)); }
-            catch(RetryableModelException ex) { last=ex; events.lifecycle(context, attempt, null, "attempt_retryable_error"); if(attempt==context.maxAttempts()) break; }
+        List<Message> history = contextManager.rebuild(
+                context.userId(),
+                context.conversationId(),
+                context.turnId());
+        RetryableModelException lastFailure = null;
+
+        for (int attemptNo = 1; attemptNo <= context.maxAttempts(); attemptNo++) {
+            context.checkDeadline();
+            events.lifecycle(context, attemptNo, null, "attempt_start");
+
+            try {
+                return new RunResult(attemptNo, loop.run(context, attemptNo, history));
+            } catch (RetryableModelException exception) {
+                lastFailure = exception;
+                events.lifecycle(context, attemptNo, null, "attempt_retryable_error");
+            }
         }
-        if(last instanceof RuntimeException runtime) throw runtime;
-        throw new AgentRunException("模型重试失败。", last, false);
+
+        if (lastFailure != null) {
+            throw lastFailure;
+        }
+        throw new AgentRunException("模型重试失败。", false);
     }
-    public record RunResult(int attemptNo, String answer) {}
+
+    public record RunResult(int attemptNo, String answer) {
+    }
 }

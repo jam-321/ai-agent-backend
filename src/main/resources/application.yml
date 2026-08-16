@@ -30,6 +30,7 @@ spring:
     timeout: 7d
     redis:
       namespace: ai-agent:session
+
   ai:
     retry:
       max-attempts: 1
@@ -41,6 +42,11 @@ spring:
         options:
           model: deepseek-chat
           temperature: 0.7
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
 
 logging:
   level:

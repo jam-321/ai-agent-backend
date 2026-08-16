@@ -1,39 +1,50 @@
 package com.jam.agent.repository;
 
+import com.jam.agent.entity.AppUserEntity;
+import com.jam.agent.mapper.AppUserMapper;
 import java.util.Optional;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public class UserRepository {
 
-    private final JdbcTemplate jdbcTemplate;
+    private final AppUserMapper mapper;
 
-    public UserRepository(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
+    public UserRepository(AppUserMapper mapper) {
+        this.mapper = mapper;
     }
 
     public Optional<UserRecord> findByUsername(String username) {
-        return jdbcTemplate.query(
-                        "SELECT id, username, password_hash, status FROM app_user WHERE username = ?",
-                        (resultSet, rowNum) -> new UserRecord(
-                                resultSet.getLong("id"),
-                                resultSet.getString("username"),
-                                resultSet.getString("password_hash"),
-                                resultSet.getBoolean("status")),
-                        username)
-                .stream()
-                .findFirst();
+        return Optional.ofNullable(mapper.selectByUsername(username))
+                .map(this::toRecord);
     }
 
     public long insert(String username, String passwordHash) {
-        jdbcTemplate.update(
-                "INSERT INTO app_user (username, password_hash) VALUES (?, ?)",
-                username,
-                passwordHash);
-        return jdbcTemplate.queryForObject("SELECT id FROM app_user WHERE username = ?", Long.class, username);
+        AppUserEntity user = new AppUserEntity();
+        user.setUsername(username);
+        user.setPasswordHash(passwordHash);
+        mapper.insert(user);
+
+        if (user.getId() == null) {
+            throw new IllegalStateException("创建用户失败。");
+        }
+        return user.getId();
     }
 
-    public record UserRecord(Long id, String username, String passwordHash, boolean enabled) {
+    private UserRecord toRecord(AppUserEntity user) {
+        return new UserRecord(
+                user.getId(),
+                user.getUsername(),
+                user.getPasswordHash(),
+                Boolean.TRUE.equals(user.getEnabled()),
+                Boolean.TRUE.equals(user.getAdmin()));
+    }
+
+    public record UserRecord(
+            Long id,
+            String username,
+            String passwordHash,
+            boolean enabled,
+            boolean admin) {
     }
 }

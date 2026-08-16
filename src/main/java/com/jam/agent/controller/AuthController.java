@@ -57,6 +57,6 @@ public class AuthController {
     }
 
     private UserResponse toResponse(AuthenticatedUser user) {
-        return new UserResponse(user.id(), user.username());
+        return new UserResponse(user.id(), user.username(), user.admin());
     }
 }

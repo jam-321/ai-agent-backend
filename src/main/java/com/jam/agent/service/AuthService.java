@@ -48,7 +48,8 @@ public class AuthService {
         HttpSession session = request.getSession(true);
         session.setAttribute(SessionUserAuthenticationFilter.USER_ID_ATTRIBUTE, record.get().id());
         session.setAttribute(SessionUserAuthenticationFilter.USERNAME_ATTRIBUTE, record.get().username());
-        return new AuthenticatedUser(record.get().id(), record.get().username());
+        session.setAttribute(SessionUserAuthenticationFilter.IS_ADMIN_ATTRIBUTE, record.get().admin());
+        return new AuthenticatedUser(record.get().id(), record.get().username(), record.get().admin());
     }
 
     public void logout(HttpServletRequest request) {

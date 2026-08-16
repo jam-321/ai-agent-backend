@@ -1,4 +1,4 @@
 package com.jam.agent.dto;
 
-public record UserResponse(Long id, String username) {
+public record UserResponse(Long id, String username, boolean isAdmin) {
 }
