@@ -1,6 +1,6 @@
 # AI Agent 方案设计（主线 1）
 
-> 更新日期：2026-08-14　目标：从零开发一个**真正可用**的 AI Agent 并发布到互联网。
+> 更新日期：2026-08-17　目标：从零开发一个**真正可用**的 AI Agent 并发布到互联网。
 
 ## 1. 目标与定位
 
@@ -53,10 +53,21 @@ flowchart LR
 
 ## 5. 后端设计（Spring Boot + Spring AI）
 
-- 包结构：`com.jam.agent`
-  - `controller/`：`ChatController`（POST /api/chat）、`HelloController`（GET /api/ping）
-  - `service/`：`ChatService`（封装 ChatClient 调用）
-  - `dto/`：请求/响应记录
+- 包结构采用“功能模块优先、模块内部轻量分层”，不使用全局 `controller/service/mapper` 横向拆分：
+
+  ```text
+  com.jam.agent
+  ├── agent          # AgentLoop、工具、记忆、执行服务、Node 持久化
+  ├── auth           # 注册登录、Session、安全配置、用户持久化
+  ├── conversation   # 会话与 Turn 查询、持久化
+  ├── monitoring     # 管理员监控接口与只读统计
+  └── common         # 统一 Web 处理、数据库启动迁移等跨模块能力
+  ```
+
+- 模块内部按需要使用 `controller`、`service`、`dto`、`persistence`；`persistence` 下再放 Entity、Mapper、Repository。
+- Mapper 负责 MyBatis SQL 与数据库行映射，Repository 向业务代码提供有语义的查询和写入方法，并隔离 MyBatis Entity。
+- 当前聊天执行链为 `ChatController -> AgentRunService -> AgentRunWorker -> AttemptRunner -> AgentLoop -> ModelAdapter`，早期单轮直连模型的 `ChatService` 已删除。
+- 未来 RAG、Skill 作为独立功能模块；Milvus、Redis、模型供应商等技术组件放在所属模块内部，不与业务模块平级。
 - Spring AI 接入 OpenAI 兼容协议：`spring.ai.openai.base-url=https://api.deepseek.com`，模型 `deepseek-chat`
 - API Key 通过环境变量 `DEEPSEEK_API_KEY` 注入，不写死在代码/配置里；未配置时返回 mock 回复，方便联调。
 
@@ -68,16 +79,20 @@ flowchart LR
 
 ## 7. 目录结构
 
-```
-ai-agent/
-├── README.md
-├── docs/design.md
-├── docker/
-│   ├── docker-compose.yml     # MySQL + Redis
-│   ├── .env.example           # 密码等环境变量模板
-│   └── mysql/init/init.sql    # 初始化 SQL
-├── backend/                   # Spring Boot 后端
-└── frontend/                  # Vue3 前端
+```text
+ai-agent-backend/
+├── docs/                      # 设计、里程碑、迭代历史
+├── docker/                    # MySQL + Redis 编排
+├── src/main/java/com/jam/agent/
+│   ├── agent/
+│   ├── auth/
+│   ├── common/
+│   ├── conversation/
+│   └── monitoring/
+└── src/main/resources/
+    ├── mapper/                # 按功能模块继续分目录
+    ├── application.yml
+    └── schema.sql
 ```
 
 ## 8. 里程碑

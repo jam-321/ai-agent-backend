@@ -1,7 +1,7 @@
 package com.jam.agent.agent.event;
 
 import com.jam.agent.agent.runtime.AgentExecutionContext;
-import com.jam.agent.repository.ConversationNodeRepository;
+import com.jam.agent.agent.persistence.repository.ConversationNodeRepository;
 import org.springframework.stereotype.Component;
 
 /** Persists every Agent state transition as a new conversation_node row. */

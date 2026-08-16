@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jam.agent.conversation.persistence.mapper.ConversationMapper">
+
+    <resultMap id="ConversationResult" type="com.jam.agent.conversation.persistence.entity.ConversationEntity">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="title" column="title"/>
+        <result property="source" column="source"/>
+        <result property="deleted" column="is_deleted"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="Columns">
+        id, user_id, title, source, is_deleted, created_at, updated_at
+    </sql>
+
+    <select id="selectForUser" resultMap="ConversationResult">
+        SELECT <include refid="Columns"/>
+        FROM conversation
+        WHERE id = #{conversationId}
+          AND user_id = #{userId}
+          AND is_deleted = 0
+    </select>
+
+    <select id="selectListForUser" resultMap="ConversationResult">
+        SELECT <include refid="Columns"/>
+        FROM conversation
+        WHERE user_id = #{userId}
+          AND is_deleted = 0
+        ORDER BY updated_at DESC, id DESC
+    </select>
+
+    <update id="updateTitleIfEmpty">
+        UPDATE conversation
+        SET title = #{title}
+        WHERE id = #{conversationId}
+          AND user_id = #{userId}
+          AND is_deleted = 0
+          AND (title IS NULL OR title = '')
+    </update>
+
+    <update id="touch">
+        UPDATE conversation
+        SET updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{conversationId}
+          AND user_id = #{userId}
+          AND is_deleted = 0
+    </update>
+
+    <select id="lockForUpdate" resultType="long">
+        SELECT id
+        FROM conversation
+        WHERE id = #{conversationId}
+          AND user_id = #{userId}
+          AND is_deleted = 0
+        FOR UPDATE
+    </select>
+
+    <update id="softDelete">
+        UPDATE conversation
+        SET is_deleted = 1
+        WHERE id = #{conversationId}
+          AND user_id = #{userId}
+          AND is_deleted = 0
+    </update>
+
+</mapper>

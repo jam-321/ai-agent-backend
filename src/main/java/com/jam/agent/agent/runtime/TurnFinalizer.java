@@ -1,8 +1,8 @@
 package com.jam.agent.agent.runtime;
 
 import com.jam.agent.agent.event.EventPublisher;
-import com.jam.agent.repository.ConversationRepository;
-import com.jam.agent.repository.ConversationTurnRepository;
+import com.jam.agent.conversation.persistence.repository.ConversationRepository;
+import com.jam.agent.conversation.persistence.repository.ConversationTurnRepository;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 

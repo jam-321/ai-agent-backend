@@ -29,7 +29,8 @@ spring:
     store-type: redis
     timeout: 7d
     redis:
-      namespace: ai-agent:session
+      # v2 invalidates sessions serialized before the auth package migration.
+      namespace: ai-agent:session:v2
 
   ai:
     retry:

@@ -2,7 +2,7 @@ package com.jam.agent.agent.tool;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jam.agent.agent.runtime.AgentExecutionContext;
-import com.jam.agent.repository.ConversationNodeRepository;
+import com.jam.agent.agent.persistence.repository.ConversationNodeRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.ZoneId;

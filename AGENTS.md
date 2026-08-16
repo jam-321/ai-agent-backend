@@ -12,6 +12,14 @@
 - MySQL 和 Redis 可通过 Docker 长期运行；除非用户明确要求，不因结束前后端验证而停止中间件。
 - 关闭服务前先核对监听端口、进程 ID 和进程归属，避免终止用户从 IDEA 或其他终端启动的进程。
 
+## 后端包结构约定
+
+- 顶层按功能模块组织，当前核心模块为 `agent`、`auth`、`conversation`、`monitoring` 和 `common`。
+- 每个功能模块内部按实际复杂度使用 `controller`、`service`、`dto`、`persistence` 等分层；不再新增全局 `controller/service/mapper` 横向包。
+- `entity`、`mapper`、`repository` 跟随数据所属模块放入 `persistence`，业务代码不直接跨模块调用其他模块的 Mapper 或 Entity。
+- RAG、Skill 等未来能力作为独立功能模块；Milvus、Redis、模型供应商等技术实现放在所属功能模块的基础设施层，不与业务能力平级。
+- 小模块不强制创建空分层目录，类增多后再按职责拆分；通用代码只有被多个模块稳定复用时才进入 `common`。
+
 ## 知识索引树
 
 | 节点名称 | 是否为叶子节点 | 节点地址 | 说明用途 | 何时注入上下文 |

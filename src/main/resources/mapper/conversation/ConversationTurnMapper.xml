@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jam.agent.conversation.persistence.mapper.ConversationTurnMapper">
+
+    <resultMap id="TurnResult" type="com.jam.agent.conversation.persistence.entity.ConversationTurnEntity">
+        <id property="id" column="id"/>
+        <result property="conversationId" column="conversation_id"/>
+        <result property="turnId" column="turn_id"/>
+        <result property="type" column="type"/>
+        <result property="content" column="content"/>
+        <result property="hidden" column="is_hidden"/>
+        <result property="errorMessage" column="error_message"/>
+        <result property="traceId" column="trace_id"/>
+        <result property="feedbackType" column="feedback_type"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <resultMap id="IncompleteContextResult" type="com.jam.agent.conversation.persistence.mapper.ConversationTurnMapper$IncompleteTurnContext">
+        <constructor>
+            <arg column="user_id" javaType="long"/>
+            <arg column="conversation_id" javaType="long"/>
+            <arg column="turn_id" javaType="int"/>
+            <arg column="content" javaType="string"/>
+            <arg column="trace_id" javaType="string"/>
+        </constructor>
+    </resultMap>
+
+    <sql id="TurnColumns">
+        t.id, t.conversation_id, t.turn_id, t.type, t.content, t.is_hidden,
+        t.error_message, t.trace_id, t.feedback_type, t.created_at, t.updated_at
+    </sql>
+
+    <select id="findMaxTurnId" resultType="int">
+        SELECT COALESCE(MAX(t.turn_id), 0)
+        FROM conversation_turn t
+        JOIN conversation c ON c.id = t.conversation_id
+        WHERE c.id = #{conversationId}
+          AND c.user_id = #{userId}
+          AND c.is_deleted = 0
+    </select>
+
+    <insert id="insertOwned">
+        INSERT INTO conversation_turn (
+            conversation_id, turn_id, type, content, error_message, trace_id
+        )
+        SELECT c.id, #{turnId}, #{type}, #{content}, #{errorMessage}, #{traceId}
+        FROM conversation c
+        WHERE c.id = #{conversationId}
+          AND c.user_id = #{userId}
+          AND c.is_deleted = 0
+    </insert>
+
+    <select id="selectForUser" resultMap="TurnResult">
+        SELECT <include refid="TurnColumns"/>
+        FROM conversation_turn t
+        JOIN conversation c ON c.id = t.conversation_id
+        WHERE t.conversation_id = #{conversationId}
+          AND t.turn_id = #{turnId}
+          AND t.type = #{type}
+          AND c.user_id = #{userId}
+          AND c.is_deleted = 0
+    </select>
+
+    <select id="selectCompletedBefore" resultMap="TurnResult">
+        SELECT <include refid="TurnColumns"/>
+        FROM conversation_turn t
+        JOIN conversation c ON c.id = t.conversation_id
+        WHERE t.conversation_id = #{conversationId}
+          AND c.user_id = #{userId}
+          AND c.is_deleted = 0
+          AND t.turn_id &lt; #{currentTurnId}
+          AND t.is_hidden = 0
+          AND t.type IN ('user', 'assistant')
+          AND EXISTS (
+              SELECT 1
+              FROM conversation_turn assistant
+              WHERE assistant.conversation_id = t.conversation_id
+                AND assistant.turn_id = t.turn_id
+                AND assistant.type = 'assistant'
+          )
+        ORDER BY t.turn_id DESC, t.id DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectIncompleteTurns" resultMap="TurnResult">
+        SELECT
+            u.id, u.conversation_id, u.turn_id, u.type, u.content, u.is_hidden,
+            u.error_message, u.trace_id, u.feedback_type, u.created_at, u.updated_at
+        FROM conversation_turn u
+        WHERE u.type = 'user'
+          AND NOT EXISTS (
+              SELECT 1
+              FROM conversation_turn assistant
+              WHERE assistant.conversation_id = u.conversation_id
+                AND assistant.turn_id = u.turn_id
+                AND assistant.type = 'assistant'
+          )
+    </select>
+
+    <select id="selectIncompleteTurnContexts" resultMap="IncompleteContextResult">
+        SELECT c.user_id, u.conversation_id, u.turn_id, u.content, u.trace_id
+        FROM conversation_turn u
+        JOIN conversation c ON c.id = u.conversation_id
+        WHERE u.type = 'user'
+          AND c.is_deleted = 0
+          AND NOT EXISTS (
+              SELECT 1
+              FROM conversation_turn assistant
+              WHERE assistant.conversation_id = u.conversation_id
+                AND assistant.turn_id = u.turn_id
+                AND assistant.type = 'assistant'
+          )
+    </select>
+
+    <select id="selectTurnsForUser" resultMap="TurnResult">
+        SELECT <include refid="TurnColumns"/>
+        FROM conversation_turn t
+        JOIN conversation c ON c.id = t.conversation_id
+        WHERE t.conversation_id = #{conversationId}
+          AND c.user_id = #{userId}
+          AND c.is_deleted = 0
+          AND t.type IN ('user', 'assistant')
+        ORDER BY t.turn_id, t.id
+    </select>
+
+    <select id="countAssistant" resultType="int">
+        SELECT COUNT(*)
+        FROM conversation_turn
+        WHERE conversation_id = #{conversationId}
+          AND turn_id = #{turnId}
+          AND type = 'assistant'
+    </select>
+
+</mapper>

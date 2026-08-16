@@ -1,9 +1,9 @@
 package com.jam.agent.agent.memory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.jam.agent.config.AgentProperties;
-import com.jam.agent.repository.ConversationNodeRepository;
-import com.jam.agent.repository.ConversationTurnRepository;
+import com.jam.agent.agent.config.AgentProperties;
+import com.jam.agent.agent.persistence.repository.ConversationNodeRepository;
+import com.jam.agent.conversation.persistence.repository.ConversationTurnRepository;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
