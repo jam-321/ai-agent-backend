@@ -1,6 +1,7 @@
 package com.jam.agent.controller;
 
 import com.jam.agent.service.AuthService;
+import com.jam.agent.service.AgentRunService;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,4 +25,13 @@ public class ApiExceptionHandler {
     public ResponseEntity<Map<String, String>> invalidRequest(IllegalArgumentException exception) {
         return ResponseEntity.badRequest().body(Map.of("message", exception.getMessage()));
     }
+
+    @ExceptionHandler(AgentRunService.NotFoundException.class)
+    public ResponseEntity<Map<String, String>> notFound() { return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "资源不存在。")); }
+
+    @ExceptionHandler(AgentRunService.ConversationBusyException.class)
+    public ResponseEntity<Map<String, String>> busy() { return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", "当前会话正在处理中，请稍后再试。")); }
+
+    @ExceptionHandler(AgentRunService.TaskRejectedException.class)
+    public ResponseEntity<Map<String, String>> rejected() { return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of("message", "系统繁忙，请稍后重试。")); }
 }

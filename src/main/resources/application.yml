@@ -31,6 +31,8 @@ spring:
     redis:
       namespace: ai-agent:session
   ai:
+    retry:
+      max-attempts: 1
     openai:
       # OpenAI 兼容协议：DeepSeek（国内可直连），可换成通义/OpenAI 等
       base-url: https://api.deepseek.com
@@ -43,3 +45,30 @@ spring:
 logging:
   level:
     com.jam.agent: info
+
+agent:
+  loop:
+    max-attempts: 2
+    max-tool-rounds: 40
+    max-tools-per-round: 8
+    max-run-duration: 5m
+    max-degenerate-retries: 2
+    max-same-tool-signature: 3
+  memory:
+    max-history-turns: 50
+    max-tool-pairs-per-turn: 3
+    max-tool-args-preview-chars: 300
+    max-tool-result-preview-chars: 500
+    max-history-tokens: 24000
+  progress:
+    max-tool-args-preview-chars: 1000
+    max-tool-result-preview-chars: 2000
+  lock:
+    ttl: 10m
+  executor:
+    run-core-size: 2
+    run-max-size: 4
+    run-queue-capacity: 100
+    tool-core-size: 4
+    tool-max-size: 8
+    tool-queue-capacity: 100

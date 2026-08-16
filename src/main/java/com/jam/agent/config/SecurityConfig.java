@@ -12,6 +12,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import jakarta.servlet.http.HttpServletResponse;
 
 @Configuration
 @EnableWebSecurity
@@ -39,6 +40,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/csrf", "/api/auth/register", "/api/auth/login", "/api/ping")
                         .permitAll()
                         .anyRequest().authenticated())
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint((request, response, exception) ->
+                                response.sendError(HttpServletResponse.SC_UNAUTHORIZED)))
                 .addFilterBefore(sessionUserAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .logout(logout -> logout.disable());
 
