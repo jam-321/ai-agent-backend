@@ -18,6 +18,11 @@ public interface ConversationMapper extends BaseMapper<ConversationEntity> {
             @Param("conversationId") long conversationId,
             @Param("title") String title);
 
+    int updateAgentKey(
+            @Param("userId") long userId,
+            @Param("conversationId") long conversationId,
+            @Param("agentKey") String agentKey);
+
     int touch(
             @Param("userId") long userId,
             @Param("conversationId") long conversationId);

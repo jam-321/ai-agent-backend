@@ -1,5 +1,6 @@
 package com.jam.agent.agent.runtime;
 
+import com.jam.agent.agent.config.AgentConfigSnapshot;
 import java.time.Duration;
 import java.time.Instant;
 
@@ -15,6 +16,7 @@ public record AgentExecutionContext(
         int turnId,
         String traceId,
         String currentQuery,
+        AgentConfigSnapshot agentConfig,
         int maxAttempts,
         int maxToolRounds,
         int maxToolsPerRound,

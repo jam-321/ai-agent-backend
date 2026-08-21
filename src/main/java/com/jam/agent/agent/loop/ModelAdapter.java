@@ -48,12 +48,12 @@ public class ModelAdapter {
             List<ToolCallback> tools,
             AgentExecutionContext context) {
         if (!enabled) {
-            return mockResponse(context);
+            return mockResponse(messages, context);
         }
 
         try {
             ChatResponse response = model.call(new Prompt(
-                    withSystemPrompt(messages),
+                    withSystemPrompt(messages, context.agentConfig().systemPrompt()),
                     buildOptions(tools, context)));
             return extractResult(response);
         } catch (RetryableModelException exception) {
@@ -79,9 +79,12 @@ public class ModelAdapter {
                 .build();
     }
 
-    private List<Message> withSystemPrompt(List<Message> messages) {
+    private List<Message> withSystemPrompt(List<Message> messages, String configuredPrompt) {
         List<Message> promptMessages = new ArrayList<>(messages.size() + 1);
-        promptMessages.add(new SystemMessage(SYSTEM_PROMPT));
+        String systemPrompt = configuredPrompt == null || configuredPrompt.isBlank()
+                ? SYSTEM_PROMPT
+                : configuredPrompt;
+        promptMessages.add(new SystemMessage(systemPrompt));
         promptMessages.addAll(messages);
         return promptMessages;
     }
@@ -95,9 +98,17 @@ public class ModelAdapter {
         return new ModelResult(response.getResult().getOutput());
     }
 
-    private ModelResult mockResponse(AgentExecutionContext context) {
+    private ModelResult mockResponse(List<Message> messages, AgentExecutionContext context) {
+        String query = context.currentQuery();
+        for (int index = messages.size() - 1; index >= 0; index--) {
+            if (messages.get(index) instanceof org.springframework.ai.chat.messages.UserMessage user
+                    && user.getText() != null) {
+                query = user.getText();
+                break;
+            }
+        }
         return new ModelResult(new AssistantMessage(
-                "[mock] 尚未配置 DEEPSEEK_API_KEY。你的问题是：" + context.currentQuery()));
+                "[mock] 尚未配置 DEEPSEEK_API_KEY。你的问题是：" + query));
     }
 
     private String safeMessage(RuntimeException exception) {

@@ -1,6 +1,6 @@
 package com.jam.agent.agent.runtime;
 
-import com.jam.agent.agent.event.EventPublisher;
+import com.jam.agent.agent.event.Dispatcher;
 import com.jam.agent.conversation.persistence.repository.ConversationRepository;
 import com.jam.agent.conversation.persistence.repository.ConversationTurnRepository;
 import org.springframework.stereotype.Component;
@@ -21,13 +21,13 @@ public class TurnFinalizer {
     private final TransactionTemplate transactions;
     private final ConversationTurnRepository turns;
     private final ConversationRepository conversations;
-    private final EventPublisher events;
+    private final Dispatcher events;
 
     public TurnFinalizer(
             TransactionTemplate transactions,
             ConversationTurnRepository turns,
             ConversationRepository conversations,
-            EventPublisher events) {
+            Dispatcher events) {
         this.transactions = transactions;
         this.turns = turns;
         this.conversations = conversations;

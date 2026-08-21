@@ -1,0 +1,37 @@
+package com.jam.agent.agent.config;
+
+import com.jam.agent.agent.persistence.repository.AgentConfigRepository;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
+
+/** Seeds a small set of editable Agent recipes on a new database. */
+@Component
+@Order(Integer.MAX_VALUE)
+public class AgentConfigInitializer implements ApplicationRunner {
+
+    private static final String GENERAL_PROMPT = """
+            你是一个友好、专业的中文 AI Agent。
+            需要准确时间时调用 current_time，需要精确算术时调用 calculate，需要查询历史工具完整数据时调用 query_conversation_node。不要编造工具结果。
+            """;
+
+    private final AgentConfigRepository repository;
+
+    public AgentConfigInitializer(AgentConfigRepository repository) {
+        this.repository = repository;
+    }
+
+    @Override
+    public void run(ApplicationArguments args) {
+        if (repository.count() > 0) {
+            return;
+        }
+        repository.insert("general", GENERAL_PROMPT, "[]", "{}");
+        repository.insert(
+                "with_time",
+                GENERAL_PROMPT,
+                "[\"time_inject\"]",
+                "{}");
+    }
+}

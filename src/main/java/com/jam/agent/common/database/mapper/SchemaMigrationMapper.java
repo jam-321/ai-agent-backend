@@ -7,4 +7,12 @@ public interface SchemaMigrationMapper {
     int countAdminColumn();
 
     void addAdminColumn();
+
+    int countConversationAgentKeyColumn();
+
+    void addConversationAgentKeyColumn();
+
+    int countAgentConfigTable();
+
+    void createAgentConfigTable();
 }

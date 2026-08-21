@@ -3,6 +3,7 @@ package com.jam.agent.agent.service;
 import com.jam.agent.agent.runtime.AgentExecutionContext;
 import com.jam.agent.agent.runtime.ConversationLock;
 import com.jam.agent.agent.runtime.TurnFinalizer;
+import com.jam.agent.agent.config.AgentConfigSnapshot;
 import com.jam.agent.agent.config.AgentProperties;
 import com.jam.agent.conversation.persistence.repository.ConversationTurnRepository;
 import java.util.List;
@@ -52,6 +53,7 @@ public class AgentRecoveryService {
                 turn.turnId(),
                 turn.traceId(),
                 turn.content(),
+                AgentConfigSnapshot.defaultConfig(),
                 properties.getLoop().getMaxAttempts(),
                 properties.getLoop().getMaxToolRounds(),
                 properties.getLoop().getMaxToolsPerRound(),

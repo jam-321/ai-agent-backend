@@ -1,6 +1,7 @@
 package com.jam.agent.agent.loop;
 
-import com.jam.agent.agent.event.EventPublisher;
+import com.jam.agent.agent.event.AgentTurnContext;
+import com.jam.agent.agent.event.Dispatcher;
 import com.jam.agent.agent.runtime.AgentExecutionContext;
 import com.jam.agent.agent.tool.ToolExecutor;
 import com.jam.agent.agent.tool.ToolExecutor.ToolResult;
@@ -21,7 +22,7 @@ import org.springframework.stereotype.Component;
  *
  * <p>The loop owns only the in-memory working transcript. Durable user/assistant turns
  * are written by {@code TurnFinalizer}; intermediate events are written through
- * {@link EventPublisher}.
+ * {@link Dispatcher}.
  */
 @Component
 public class AgentLoop {
@@ -31,13 +32,13 @@ public class AgentLoop {
 
     private final ModelAdapter model;
     private final ToolExecutor tools;
-    private final EventPublisher events;
+    private final Dispatcher events;
     private final Executor toolExecutor;
 
     public AgentLoop(
             ModelAdapter model,
             ToolExecutor tools,
-            EventPublisher events,
+            Dispatcher events,
             @Qualifier("agentToolExecutor") Executor toolExecutor) {
         this.model = model;
         this.tools = tools;
@@ -49,6 +50,8 @@ public class AgentLoop {
     public String run(AgentExecutionContext context, int attemptNo, List<Message> history) {
         List<Message> messages = new ArrayList<>(history);
         messages.add(new UserMessage(context.currentQuery()));
+        AgentTurnContext turn = new AgentTurnContext(context, messages);
+        events.turnStart(turn);
 
         List<ToolCallback> callbacks = new ArrayList<>(tools.callbacks().values());
         ToolRepetitionGuard repetitionGuard =
@@ -103,7 +106,7 @@ public class AgentLoop {
         // The assistant tool-call message must precede all matching tool results.
         messages.add(response);
         if (isMeaningful(response.getText())) {
-            events.assistant(context, attemptNo, roundNo, response.getText());
+                events.assistant(context, attemptNo, roundNo, response.getText());
         }
 
         publishAllToolStarts(context, attemptNo, roundNo, calls);

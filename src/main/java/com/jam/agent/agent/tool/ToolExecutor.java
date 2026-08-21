@@ -1,7 +1,7 @@
 package com.jam.agent.agent.tool;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.jam.agent.agent.event.EventPublisher;
+import com.jam.agent.agent.event.Dispatcher;
 import com.jam.agent.agent.runtime.AgentExecutionContext;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -18,10 +18,10 @@ public class ToolExecutor {
     private static final int MAX_ERROR_MESSAGE_LENGTH = 500;
 
     private final Map<String, ToolCallback> callbacks = new LinkedHashMap<>();
-    private final EventPublisher events;
+    private final Dispatcher events;
     private final ObjectMapper objectMapper;
 
-    public ToolExecutor(BuiltinTools builtinTools, EventPublisher events, ObjectMapper objectMapper) {
+    public ToolExecutor(BuiltinTools builtinTools, Dispatcher events, ObjectMapper objectMapper) {
         this.events = events;
         this.objectMapper = objectMapper;
 

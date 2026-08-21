@@ -17,9 +17,14 @@ public class ConversationRepository {
     }
 
     public long insert(long userId, String title) {
+        return insert(userId, title, "general");
+    }
+
+    public long insert(long userId, String title, String agentKey) {
         ConversationEntity conversation = new ConversationEntity();
         conversation.setUserId(userId);
         conversation.setTitle(title);
+        conversation.setAgentKey(agentKey);
         mapper.insert(conversation);
 
         if (conversation.getId() == null) {
@@ -43,6 +48,10 @@ public class ConversationRepository {
         mapper.updateTitleIfEmpty(userId, conversationId, title);
     }
 
+    public void updateAgentKey(long userId, long conversationId, String agentKey) {
+        mapper.updateAgentKey(userId, conversationId, agentKey);
+    }
+
     public void touch(long userId, long conversationId) {
         mapper.touch(userId, conversationId);
     }
@@ -63,6 +72,7 @@ public class ConversationRepository {
                 conversation.getUserId(),
                 conversation.getTitle(),
                 conversation.getSource(),
+                conversation.getAgentKey(),
                 conversation.getCreatedAt(),
                 conversation.getUpdatedAt());
     }
@@ -72,6 +82,7 @@ public class ConversationRepository {
             long userId,
             String title,
             String source,
+            String agentKey,
             LocalDateTime createdAt,
             LocalDateTime updatedAt) {
     }

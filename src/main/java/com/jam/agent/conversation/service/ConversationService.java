@@ -26,6 +26,7 @@ public class ConversationService {
                 .map(conversation -> new ConversationResponse(
                         conversation.id(),
                         conversation.title(),
+                        conversation.agentKey(),
                         conversation.createdAt(),
                         conversation.updatedAt()))
                 .toList();

@@ -3,15 +3,20 @@ package com.jam.agent.agent.service;
 import com.jam.agent.agent.runtime.AgentExecutionContext;
 import com.jam.agent.agent.runtime.ConversationLock;
 import com.jam.agent.agent.runtime.TurnFinalizer;
+import com.jam.agent.agent.config.AgentConfigSnapshot;
 import com.jam.agent.agent.config.AgentProperties;
 import com.jam.agent.agent.dto.ChatRequest;
 import com.jam.agent.agent.dto.ChatResponse;
 import com.jam.agent.conversation.persistence.repository.ConversationRepository;
 import com.jam.agent.conversation.persistence.repository.ConversationTurnRepository;
+import com.jam.agent.agent.persistence.repository.AgentConfigRepository;
+import java.util.Optional;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -25,6 +30,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 public class AgentRunService {
 
+    private static final Logger log = LoggerFactory.getLogger(AgentRunService.class);
     private static final int MAX_TITLE_CODE_POINTS = 50;
 
     private final ConversationRepository conversations;
@@ -35,6 +41,7 @@ public class AgentRunService {
     private final AgentProperties properties;
     private final TransactionTemplate transactions;
     private final Executor executor;
+    private final AgentConfigRepository agentConfigs;
 
     public AgentRunService(
             ConversationRepository conversations,
@@ -44,7 +51,8 @@ public class AgentRunService {
             TurnFinalizer finalizer,
             AgentProperties properties,
             TransactionTemplate transactions,
-            @Qualifier("agentRunExecutor") Executor executor) {
+            @Qualifier("agentRunExecutor") Executor executor,
+            AgentConfigRepository agentConfigs) {
         this.conversations = conversations;
         this.turns = turns;
         this.lock = lock;
@@ -53,11 +61,31 @@ public class AgentRunService {
         this.properties = properties;
         this.transactions = transactions;
         this.executor = executor;
+        this.agentConfigs = agentConfigs;
     }
 
     public ChatResponse submit(long userId, ChatRequest request) {
         String query = validateAndNormalizeQuery(request);
-        long conversationId = resolveConversation(userId, request.conversationId());
+        String requestedAgentKey = normalizeAgentKey(request.agentKey());
+        if (requestedAgentKey != null && agentConfigs.findByKey(requestedAgentKey).isEmpty()) {
+            log.warn("Ignoring unknown Agent recipe: {}", requestedAgentKey);
+            requestedAgentKey = null;
+        }
+
+        ConversationSelection selection = resolveConversation(
+                userId,
+                request.conversationId(),
+                requestedAgentKey);
+        long conversationId = selection.conversationId();
+        String selectedAgentKey = selection.agentKey();
+        AgentConfigSnapshot agentConfig = agentConfigs.findByKey(selectedAgentKey)
+                .orElseGet(() -> {
+                    log.warn("Conversation {} references unknown Agent recipe {}, using general",
+                            conversationId, selectedAgentKey);
+                    return agentConfigs.findByKey("general")
+                            .orElseGet(AgentConfigSnapshot::defaultConfig);
+                });
+        String effectiveAgentKey = agentConfig.agentKey();
         String traceId = UUID.randomUUID().toString();
 
         if (!lock.tryLock(conversationId, traceId, properties.getLock().getTtl())) {
@@ -66,13 +94,19 @@ public class AgentRunService {
 
         boolean workerOwnsLock = false;
         try {
-            int turnId = createUserTurn(userId, conversationId, traceId, query);
+            int turnId = createUserTurn(
+                    userId,
+                    conversationId,
+                    traceId,
+                    query,
+                    effectiveAgentKey);
             AgentExecutionContext context = buildContext(
                     userId,
                     conversationId,
                     turnId,
                     traceId,
-                    query);
+                    query,
+                    agentConfig);
 
             submitWorker(context);
             workerOwnsLock = true;
@@ -91,23 +125,34 @@ public class AgentRunService {
         return request.message().trim();
     }
 
-    private long resolveConversation(long userId, Long requestedConversationId) {
+    private ConversationSelection resolveConversation(
+            long userId,
+            Long requestedConversationId,
+            String requestedAgentKey) {
         if (requestedConversationId == null) {
-            return conversations.insert(userId, null);
+            String agentKey = requestedAgentKey == null ? "general" : requestedAgentKey;
+            return new ConversationSelection(
+                    conversations.insert(userId, null, agentKey),
+                    agentKey);
         }
-        if (conversations.findForUser(userId, requestedConversationId).isEmpty()) {
-            throw new NotFoundException();
-        }
-        return requestedConversationId;
+        ConversationRepository.ConversationRecord conversation = conversations
+                .findForUser(userId, requestedConversationId)
+                .orElseThrow(NotFoundException::new);
+        String agentKey = requestedAgentKey == null
+                ? Optional.ofNullable(conversation.agentKey()).orElse("general")
+                : requestedAgentKey;
+        return new ConversationSelection(conversation.id(), agentKey);
     }
 
     private int createUserTurn(
             long userId,
             long conversationId,
             String traceId,
-            String query) {
+            String query,
+            String agentKey) {
         return Objects.requireNonNull(transactions.execute(status -> {
             conversations.lockForUpdate(userId, conversationId);
+            conversations.updateAgentKey(userId, conversationId, agentKey);
             int turnId = turns.nextTurnId(userId, conversationId);
             turns.insert(
                     userId,
@@ -127,7 +172,8 @@ public class AgentRunService {
             long conversationId,
             int turnId,
             String traceId,
-            String query) {
+            String query,
+            AgentConfigSnapshot agentConfig) {
         AgentProperties.Loop loop = properties.getLoop();
         return new AgentExecutionContext(
                 userId,
@@ -135,6 +181,7 @@ public class AgentRunService {
                 turnId,
                 traceId,
                 query,
+                agentConfig,
                 loop.getMaxAttempts(),
                 loop.getMaxToolRounds(),
                 loop.getMaxToolsPerRound(),
@@ -150,6 +197,10 @@ public class AgentRunService {
             finalizer.fail(context, 1, exception);
             throw new TaskRejectedException();
         }
+    }
+
+    private String normalizeAgentKey(String agentKey) {
+        return agentKey == null || agentKey.isBlank() ? null : agentKey.trim();
     }
 
     private String title(String query) {
@@ -170,5 +221,8 @@ public class AgentRunService {
     }
 
     public static class NotFoundException extends RuntimeException {
+    }
+
+    private record ConversationSelection(long conversationId, String agentKey) {
     }
 }

@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS `conversation` (
     `user_id` BIGINT NOT NULL,
     `title` VARCHAR(200) DEFAULT NULL,
     `source` VARCHAR(32) NOT NULL DEFAULT 'web',
+    `agent_key` VARCHAR(32) NOT NULL DEFAULT 'general',
     `is_deleted` TINYINT NOT NULL DEFAULT 0,
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -22,6 +23,18 @@ CREATE TABLE IF NOT EXISTS `conversation` (
     KEY `idx_conversation_user_updated` (`user_id`, `is_deleted`, `updated_at`, `id`),
     CONSTRAINT `fk_conversation_user`
         FOREIGN KEY (`user_id`) REFERENCES `app_user` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `agent_config` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `agent_key` VARCHAR(32) NOT NULL,
+    `system_prompt` TEXT,
+    `enabled_plugins` JSON,
+    `magic_params` JSON,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_agent_config_key` (`agent_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `conversation_turn` (

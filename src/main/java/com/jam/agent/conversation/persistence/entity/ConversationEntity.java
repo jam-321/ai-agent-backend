@@ -15,6 +15,7 @@ public class ConversationEntity {
     private Long userId;
     private String title;
     private String source;
+    private String agentKey;
 
     @TableLogic(value = "0", delval = "1")
     @TableField("is_deleted")
@@ -53,6 +54,14 @@ public class ConversationEntity {
 
     public void setSource(String source) {
         this.source = source;
+    }
+
+    public String getAgentKey() {
+        return agentKey;
+    }
+
+    public void setAgentKey(String agentKey) {
+        this.agentKey = agentKey;
     }
 
     public Boolean getDeleted() {

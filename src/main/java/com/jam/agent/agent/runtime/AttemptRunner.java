@@ -1,6 +1,6 @@
 package com.jam.agent.agent.runtime;
 
-import com.jam.agent.agent.event.EventPublisher;
+import com.jam.agent.agent.event.Dispatcher;
 import com.jam.agent.agent.loop.AgentLoop;
 import com.jam.agent.agent.loop.ModelAdapter.RetryableModelException;
 import com.jam.agent.agent.memory.ConversationContextManager;
@@ -19,12 +19,12 @@ public class AttemptRunner {
 
     private final AgentLoop loop;
     private final ConversationContextManager contextManager;
-    private final EventPublisher events;
+    private final Dispatcher events;
 
     public AttemptRunner(
             AgentLoop loop,
             ConversationContextManager contextManager,
-            EventPublisher events) {
+            Dispatcher events) {
         this.loop = loop;
         this.contextManager = contextManager;
         this.events = events;

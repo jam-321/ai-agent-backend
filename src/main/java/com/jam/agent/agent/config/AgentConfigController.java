@@ -1,0 +1,24 @@
+package com.jam.agent.agent.config;
+
+import com.jam.agent.agent.persistence.repository.AgentConfigRepository;
+import java.util.List;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+/** Lists the Agent recipes available to the authenticated frontend. */
+@RestController
+@RequestMapping("/api/agents")
+public class AgentConfigController {
+
+    private final AgentConfigRepository repository;
+
+    public AgentConfigController(AgentConfigRepository repository) {
+        this.repository = repository;
+    }
+
+    @GetMapping
+    public List<AgentConfigSnapshot> list() {
+        return repository.findAll();
+    }
+}
