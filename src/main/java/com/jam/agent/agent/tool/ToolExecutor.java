@@ -44,7 +44,7 @@ public class ToolExecutor {
         boolean error = false;
 
         try {
-            ToolCallback callback = requireCallback(call.name());
+            ToolCallback callback = requireCallback(context, call.name());
             result = callback.call(normalizeArguments(call.arguments()), buildToolContext(context, attemptNo, roundNo, call));
             if (result == null || result.isBlank()) {
                 result = "{\"success\":true,\"result\":null}";
@@ -59,7 +59,10 @@ public class ToolExecutor {
         return new ToolResult(call.id(), call.name(), result, error);
     }
 
-    private ToolCallback requireCallback(String name) {
+    private ToolCallback requireCallback(AgentExecutionContext context, String name) {
+        if (!context.agentConfig().isToolEnabled(name)) {
+            throw new IllegalArgumentException("当前 Agent 未启用工具：" + name);
+        }
         ToolCallback callback = callbacks.get(name);
         if (callback == null) {
             throw new IllegalArgumentException("未知工具：" + name);

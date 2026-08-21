@@ -13,6 +13,7 @@ public class AgentConfigEntity {
     private String agentKey;
     private String systemPrompt;
     private String enabledPlugins;
+    private String enabledTools;
     private String magicParams;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -25,6 +26,8 @@ public class AgentConfigEntity {
     public void setSystemPrompt(String systemPrompt) { this.systemPrompt = systemPrompt; }
     public String getEnabledPlugins() { return enabledPlugins; }
     public void setEnabledPlugins(String enabledPlugins) { this.enabledPlugins = enabledPlugins; }
+    public String getEnabledTools() { return enabledTools; }
+    public void setEnabledTools(String enabledTools) { this.enabledTools = enabledTools; }
     public String getMagicParams() { return magicParams; }
     public void setMagicParams(String magicParams) { this.magicParams = magicParams; }
     public LocalDateTime getCreatedAt() { return createdAt; }

@@ -33,11 +33,17 @@ public class AgentConfigRepository {
         return mapper.selectCount(null);
     }
 
-    public void insert(String agentKey, String systemPrompt, String enabledPlugins, String magicParams) {
+    public void insert(
+            String agentKey,
+            String systemPrompt,
+            String enabledPlugins,
+            String enabledTools,
+            String magicParams) {
         AgentConfigEntity entity = new AgentConfigEntity();
         entity.setAgentKey(agentKey);
         entity.setSystemPrompt(systemPrompt);
         entity.setEnabledPlugins(enabledPlugins);
+        entity.setEnabledTools(enabledTools);
         entity.setMagicParams(magicParams);
         mapper.insert(entity);
     }
@@ -47,12 +53,28 @@ public class AgentConfigRepository {
                 entity.getAgentKey(),
                 entity.getSystemPrompt(),
                 parsePlugins(entity.getEnabledPlugins()),
+                parseTools(entity.getEnabledTools()),
                 entity.getMagicParams());
     }
 
     private java.util.Set<String> parsePlugins(String json) {
         if (json == null || json.isBlank()) {
             return java.util.Set.of();
+        }
+        try {
+            return new HashSet<>(objectMapper.readValue(json, new TypeReference<List<String>>() { }));
+        } catch (Exception exception) {
+            return java.util.Set.of();
+        }
+    }
+
+    /**
+     * A null column keeps backward compatibility and means all registered tools.
+     * An explicit empty JSON array means this Agent intentionally has no tools.
+     */
+    private java.util.Set<String> parseTools(String json) {
+        if (json == null || json.isBlank() || "null".equalsIgnoreCase(json.trim())) {
+            return null;
         }
         try {
             return new HashSet<>(objectMapper.readValue(json, new TypeReference<List<String>>() { }));

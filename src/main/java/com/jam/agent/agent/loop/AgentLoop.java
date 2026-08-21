@@ -53,7 +53,10 @@ public class AgentLoop {
         AgentTurnContext turn = new AgentTurnContext(context, messages);
         events.turnStart(turn);
 
-        List<ToolCallback> callbacks = new ArrayList<>(tools.callbacks().values());
+        List<ToolCallback> callbacks = tools.callbacks().entrySet().stream()
+                .filter(entry -> context.agentConfig().isToolEnabled(entry.getKey()))
+                .map(java.util.Map.Entry::getValue)
+                .toList();
         ToolRepetitionGuard repetitionGuard =
                 new ToolRepetitionGuard(context.maxSameToolSignature());
         int degenerateRetries = 0;

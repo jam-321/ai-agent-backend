@@ -11,6 +11,9 @@ import org.springframework.stereotype.Component;
 @Order(Integer.MAX_VALUE)
 public class AgentConfigInitializer implements ApplicationRunner {
 
+    private static final String ALL_BUILTIN_TOOLS =
+            "[\"current_time\",\"calculate\",\"query_conversation_node\"]";
+
     private static final String GENERAL_PROMPT = """
             你是一个友好、专业的中文 AI Agent。
             需要准确时间时调用 current_time，需要精确算术时调用 calculate，需要查询历史工具完整数据时调用 query_conversation_node。不要编造工具结果。
@@ -27,11 +30,12 @@ public class AgentConfigInitializer implements ApplicationRunner {
         if (repository.count() > 0) {
             return;
         }
-        repository.insert("general", GENERAL_PROMPT, "[]", "{}");
+        repository.insert("general", GENERAL_PROMPT, "[]", ALL_BUILTIN_TOOLS, "{}");
         repository.insert(
                 "with_time",
                 GENERAL_PROMPT,
                 "[\"time_inject\"]",
+                ALL_BUILTIN_TOOLS,
                 "{}");
     }
 }

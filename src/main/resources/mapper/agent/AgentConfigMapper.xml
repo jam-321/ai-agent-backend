@@ -9,13 +9,14 @@
         <result property="agentKey" column="agent_key"/>
         <result property="systemPrompt" column="system_prompt"/>
         <result property="enabledPlugins" column="enabled_plugins"/>
+        <result property="enabledTools" column="enabled_tools"/>
         <result property="magicParams" column="magic_params"/>
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
     </resultMap>
 
     <select id="selectByAgentKey" resultMap="AgentConfigResult">
-        SELECT id, agent_key, system_prompt, enabled_plugins, magic_params, created_at, updated_at
+        SELECT id, agent_key, system_prompt, enabled_plugins, enabled_tools, magic_params, created_at, updated_at
         FROM agent_config
         WHERE agent_key = #{agentKey}
     </select>

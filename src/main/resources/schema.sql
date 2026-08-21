@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS `agent_config` (
     `agent_key` VARCHAR(32) NOT NULL,
     `system_prompt` TEXT,
     `enabled_plugins` JSON,
+    `enabled_tools` JSON DEFAULT NULL,
     `magic_params` JSON,
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

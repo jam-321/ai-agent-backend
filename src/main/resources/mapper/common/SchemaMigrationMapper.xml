@@ -37,12 +37,26 @@
           AND table_name = 'agent_config'
     </select>
 
+    <select id="countAgentConfigEnabledToolsColumn" resultType="int">
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = 'agent_config'
+          AND column_name = 'enabled_tools'
+    </select>
+
+    <update id="addAgentConfigEnabledToolsColumn">
+        ALTER TABLE agent_config
+        ADD COLUMN enabled_tools JSON DEFAULT NULL AFTER enabled_plugins
+    </update>
+
     <update id="createAgentConfigTable">
         CREATE TABLE agent_config (
             id BIGINT NOT NULL AUTO_INCREMENT,
             agent_key VARCHAR(32) NOT NULL,
             system_prompt TEXT,
             enabled_plugins JSON,
+            enabled_tools JSON DEFAULT NULL,
             magic_params JSON,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

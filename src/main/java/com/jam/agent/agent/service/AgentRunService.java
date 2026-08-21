@@ -4,12 +4,14 @@ import com.jam.agent.agent.runtime.AgentExecutionContext;
 import com.jam.agent.agent.runtime.ConversationLock;
 import com.jam.agent.agent.runtime.TurnFinalizer;
 import com.jam.agent.agent.config.AgentConfigSnapshot;
+import com.jam.agent.agent.config.AgentLoopConfig;
 import com.jam.agent.agent.config.AgentProperties;
 import com.jam.agent.agent.dto.ChatRequest;
 import com.jam.agent.agent.dto.ChatResponse;
 import com.jam.agent.conversation.persistence.repository.ConversationRepository;
 import com.jam.agent.conversation.persistence.repository.ConversationTurnRepository;
 import com.jam.agent.agent.persistence.repository.AgentConfigRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Optional;
 import java.util.Objects;
 import java.util.UUID;
@@ -42,6 +44,7 @@ public class AgentRunService {
     private final TransactionTemplate transactions;
     private final Executor executor;
     private final AgentConfigRepository agentConfigs;
+    private final ObjectMapper objectMapper;
 
     public AgentRunService(
             ConversationRepository conversations,
@@ -52,7 +55,8 @@ public class AgentRunService {
             AgentProperties properties,
             TransactionTemplate transactions,
             @Qualifier("agentRunExecutor") Executor executor,
-            AgentConfigRepository agentConfigs) {
+            AgentConfigRepository agentConfigs,
+            ObjectMapper objectMapper) {
         this.conversations = conversations;
         this.turns = turns;
         this.lock = lock;
@@ -62,6 +66,7 @@ public class AgentRunService {
         this.transactions = transactions;
         this.executor = executor;
         this.agentConfigs = agentConfigs;
+        this.objectMapper = objectMapper;
     }
 
     public ChatResponse submit(long userId, ChatRequest request) {
@@ -174,7 +179,10 @@ public class AgentRunService {
             String traceId,
             String query,
             AgentConfigSnapshot agentConfig) {
-        AgentProperties.Loop loop = properties.getLoop();
+        AgentLoopConfig loop = AgentLoopConfig.resolve(
+                properties.getLoop(),
+                agentConfig.magicParams(),
+                objectMapper);
         return new AgentExecutionContext(
                 userId,
                 conversationId,
@@ -182,12 +190,12 @@ public class AgentRunService {
                 traceId,
                 query,
                 agentConfig,
-                loop.getMaxAttempts(),
-                loop.getMaxToolRounds(),
-                loop.getMaxToolsPerRound(),
-                loop.getMaxDegenerateRetries(),
-                loop.getMaxSameToolSignature(),
-                AgentExecutionContext.deadline(loop.getMaxRunDuration()));
+                loop.maxAttempts(),
+                loop.maxToolRounds(),
+                loop.maxToolsPerRound(),
+                loop.maxDegenerateRetries(),
+                loop.maxSameToolSignature(),
+                AgentExecutionContext.deadline(loop.maxRunDuration()));
     }
 
     private void submitWorker(AgentExecutionContext context) {

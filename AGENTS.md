@@ -27,6 +27,7 @@
 | 设计稿 | 是 | `E:\ai\code\code\ai-agent-backend\docs\design.md` | 主线任务前后端设计文档。 | 需要理解架构、技术选型、里程碑或准备改造设计时读取。 |
 | 环境信息 | 是 | `E:\ai\code\code\ai-agent-backend\docs\environment.md` | 主线任务前后端、Docker、MySQL、Redis 等本机环境配置信息。 | 需要构建、启动、连接中间件或排查环境问题时读取。 |
 | 里程碑 | 是 | `E:\ai\code\code\ai-agent-backend\docs\里程碑.md` | 主线任务当前阶段和关键成果的摘要，优先于迭代历史注入。 | 恢复主线上下文、判断当前进度或规划下一步时先读取。 |
+| 未来规划 | 是 | `E:\ai\code\code\ai-agent-backend\docs\未来规划.md` | 主线后续阶段规划（M4 上线 + 仿 dsh 的四阶段改造路线）与现状差距。 | 规划下一步、评估改造方向、准备实施阶段 1~4 时读取。 |
 | 迭代历史 | 否 | `E:\ai\code\code\ai-agent-backend\docs\迭代历史` | 记录主线开发流程；当主线有显著推进时，主动询问用户是否记入迭代历史。 | 需要回顾决策、恢复历史上下文或准备追加迭代记录时读取目录内相关文档。 |
 
 迭代历史采用多个 Markdown 文件分段：默认按日期或显著里程碑创建；单文件过长或进入新阶段时新开文件，不在一个文件里无限追加。
