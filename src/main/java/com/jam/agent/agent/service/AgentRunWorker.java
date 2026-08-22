@@ -1,7 +1,9 @@
 package com.jam.agent.agent.service;
 
 import com.jam.agent.agent.runtime.AgentExecutionContext;
-import com.jam.agent.agent.runtime.AttemptRunner;
+import com.jam.agent.agent.runtime.AgentExecutor;
+import com.jam.agent.agent.runtime.AgentExecutorRegistry;
+import com.jam.agent.agent.runtime.AgentRunResult;
 import com.jam.agent.agent.runtime.ConversationLock;
 import com.jam.agent.agent.runtime.TurnFinalizer;
 import org.slf4j.Logger;
@@ -14,15 +16,15 @@ public class AgentRunWorker {
 
     private static final Logger log = LoggerFactory.getLogger(AgentRunWorker.class);
 
-    private final AttemptRunner attempts;
+    private final AgentExecutorRegistry executors;
     private final TurnFinalizer finalizer;
     private final ConversationLock lock;
 
     public AgentRunWorker(
-            AttemptRunner attempts,
+            AgentExecutorRegistry executors,
             TurnFinalizer finalizer,
             ConversationLock lock) {
-        this.attempts = attempts;
+        this.executors = executors;
         this.finalizer = finalizer;
         this.lock = lock;
     }
@@ -30,7 +32,8 @@ public class AgentRunWorker {
     public void run(AgentExecutionContext context) {
         int attemptNo = 1;
         try {
-            AttemptRunner.RunResult result = attempts.run(context);
+            AgentExecutor executor = executors.resolve(context.agentConfig().executionType());
+            AgentRunResult result = executor.execute(context);
             attemptNo = result.attemptNo();
             finalizer.complete(context, attemptNo, result.answer());
         } catch (Throwable exception) {

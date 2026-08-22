@@ -59,6 +59,7 @@ public class AgentRecoveryService {
                 properties.getLoop().getMaxToolsPerRound(),
                 properties.getLoop().getMaxDegenerateRetries(),
                 properties.getLoop().getMaxSameToolSignature(),
+                properties.getWorkflow().getMaxSteps(),
                 AgentExecutionContext.deadline(properties.getLoop().getMaxRunDuration()));
 
         try {

@@ -7,6 +7,8 @@
     <resultMap id="AgentConfigResult" type="com.jam.agent.agent.persistence.entity.AgentConfigEntity">
         <id property="id" column="id"/>
         <result property="agentKey" column="agent_key"/>
+        <result property="executionType" column="execution_type"/>
+        <result property="executionKey" column="execution_key"/>
         <result property="systemPrompt" column="system_prompt"/>
         <result property="enabledPlugins" column="enabled_plugins"/>
         <result property="enabledTools" column="enabled_tools"/>
@@ -16,7 +18,8 @@
     </resultMap>
 
     <select id="selectByAgentKey" resultMap="AgentConfigResult">
-        SELECT id, agent_key, system_prompt, enabled_plugins, enabled_tools, magic_params, created_at, updated_at
+        SELECT id, agent_key, execution_type, execution_key, system_prompt, enabled_plugins,
+               enabled_tools, magic_params, created_at, updated_at
         FROM agent_config
         WHERE agent_key = #{agentKey}
     </select>

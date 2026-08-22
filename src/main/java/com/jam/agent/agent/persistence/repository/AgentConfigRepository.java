@@ -39,8 +39,21 @@ public class AgentConfigRepository {
             String enabledPlugins,
             String enabledTools,
             String magicParams) {
+        insert(agentKey, systemPrompt, enabledPlugins, enabledTools, magicParams, "LOOP", null);
+    }
+
+    public void insert(
+            String agentKey,
+            String systemPrompt,
+            String enabledPlugins,
+            String enabledTools,
+            String magicParams,
+            String executionType,
+            String executionKey) {
         AgentConfigEntity entity = new AgentConfigEntity();
         entity.setAgentKey(agentKey);
+        entity.setExecutionType(executionType);
+        entity.setExecutionKey(executionKey);
         entity.setSystemPrompt(systemPrompt);
         entity.setEnabledPlugins(enabledPlugins);
         entity.setEnabledTools(enabledTools);
@@ -54,7 +67,9 @@ public class AgentConfigRepository {
                 entity.getSystemPrompt(),
                 parsePlugins(entity.getEnabledPlugins()),
                 parseTools(entity.getEnabledTools()),
-                entity.getMagicParams());
+                entity.getMagicParams(),
+                entity.getExecutionType(),
+                entity.getExecutionKey());
     }
 
     private java.util.Set<String> parsePlugins(String json) {

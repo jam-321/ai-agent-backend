@@ -34,5 +34,8 @@ public class DatabaseSchemaMigration implements ApplicationRunner {
         if (mapper.countAgentConfigEnabledToolsColumn() == 0) {
             mapper.addAgentConfigEnabledToolsColumn();
         }
+        if (mapper.countAgentConfigExecutionTypeColumn() == 0) {
+            mapper.addAgentConfigExecutionColumns();
+        }
     }
 }

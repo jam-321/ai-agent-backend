@@ -1,6 +1,7 @@
 package com.jam.agent.agent.config;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Set;
@@ -44,5 +45,20 @@ class AgentConfigSnapshotTest {
                 "{}");
 
         assertFalse(snapshot.isToolEnabled("current_time"));
+    }
+
+    @Test
+    void normalizesWorkflowExecutionType() {
+        AgentConfigSnapshot snapshot = new AgentConfigSnapshot(
+                "time-workflow",
+                "prompt",
+                Set.of(),
+                Set.of("current_time"),
+                "{}",
+                " workflow ",
+                "time_report");
+
+        assertEquals("WORKFLOW", snapshot.executionType());
+        assertEquals("time_report", snapshot.executionKey());
     }
 }

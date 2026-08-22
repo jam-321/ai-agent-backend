@@ -11,6 +11,8 @@ public class AgentConfigEntity {
     @TableId(type = IdType.AUTO)
     private Long id;
     private String agentKey;
+    private String executionType;
+    private String executionKey;
     private String systemPrompt;
     private String enabledPlugins;
     private String enabledTools;
@@ -22,6 +24,10 @@ public class AgentConfigEntity {
     public void setId(Long id) { this.id = id; }
     public String getAgentKey() { return agentKey; }
     public void setAgentKey(String agentKey) { this.agentKey = agentKey; }
+    public String getExecutionType() { return executionType; }
+    public void setExecutionType(String executionType) { this.executionType = executionType; }
+    public String getExecutionKey() { return executionKey; }
+    public void setExecutionKey(String executionKey) { this.executionKey = executionKey; }
     public String getSystemPrompt() { return systemPrompt; }
     public void setSystemPrompt(String systemPrompt) { this.systemPrompt = systemPrompt; }
     public String getEnabledPlugins() { return enabledPlugins; }

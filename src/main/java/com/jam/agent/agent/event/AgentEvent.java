@@ -83,6 +83,29 @@ public record AgentEvent(
         return base("generate", execution, attemptNo, null, null, "generate", null, content, error);
     }
 
+    public static AgentEvent workflowStepStart(
+            AgentExecutionContext execution,
+            int attemptNo,
+            int stepNo,
+            String stepId,
+            String runKey,
+            String content) {
+        return base("workflow_step_start", execution, attemptNo, stepNo, null,
+                stepId, runKey, content, false);
+    }
+
+    public static AgentEvent workflowStepEnd(
+            AgentExecutionContext execution,
+            int attemptNo,
+            int stepNo,
+            String stepId,
+            String runKey,
+            String content,
+            boolean error) {
+        return base("workflow_step_end", execution, attemptNo, stepNo, null,
+                stepId, runKey, content, error);
+    }
+
     private static AgentEvent base(
             String name,
             AgentExecutionContext execution,

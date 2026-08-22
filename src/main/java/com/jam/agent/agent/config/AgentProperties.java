@@ -11,12 +11,14 @@ public class AgentProperties {
     private final Progress progress = new Progress();
     private final Lock lock = new Lock();
     private final Executor executor = new Executor();
+    private final Workflow workflow = new Workflow();
 
     public Loop getLoop() { return loop; }
     public Memory getMemory() { return memory; }
     public Progress getProgress() { return progress; }
     public Lock getLock() { return lock; }
     public Executor getExecutor() { return executor; }
+    public Workflow getWorkflow() { return workflow; }
 
     public static class Loop {
         private int maxAttempts = 2;
@@ -91,5 +93,11 @@ public class AgentProperties {
         public void setToolMaxSize(int v) { toolMaxSize = v; }
         public int getToolQueueCapacity() { return toolQueueCapacity; }
         public void setToolQueueCapacity(int v) { toolQueueCapacity = v; }
+    }
+
+    public static class Workflow {
+        private int maxSteps = 32;
+        public int getMaxSteps() { return maxSteps; }
+        public void setMaxSteps(int v) { maxSteps = v; }
     }
 }

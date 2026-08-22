@@ -72,6 +72,8 @@ agent:
     max-tool-result-preview-chars: 2000
   lock:
     ttl: 10m
+  workflow:
+    max-steps: 32
   executor:
     run-core-size: 2
     run-max-size: 4

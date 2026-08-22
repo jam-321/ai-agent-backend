@@ -28,6 +28,8 @@ CREATE TABLE IF NOT EXISTS `conversation` (
 CREATE TABLE IF NOT EXISTS `agent_config` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
     `agent_key` VARCHAR(32) NOT NULL,
+    `execution_type` VARCHAR(32) NOT NULL DEFAULT 'LOOP',
+    `execution_key` VARCHAR(64) DEFAULT NULL,
     `system_prompt` TEXT,
     `enabled_plugins` JSON,
     `enabled_tools` JSON DEFAULT NULL,

@@ -8,7 +8,8 @@ import com.jam.agent.agent.persistence.repository.ConversationNodeRepository;
 /** System plugin that projects Agent events into conversation_node rows. */
 @PluginSubscribes(
         id = "node_trace",
-        events = {"lifecycle", "tool_call", "tool_result", "assistant", "generate"},
+        events = {"lifecycle", "tool_call", "tool_result", "workflow_step_start",
+                "workflow_step_end", "assistant", "generate"},
         order = 5,
         system = true)
 public class NodeTracePlugin implements Plugin {
@@ -40,6 +41,14 @@ public class NodeTracePlugin implements Plugin {
                 nodeName = event.toolName();
                 type = "TOOL_CALL";
                 status = "tool_call".equals(event.name())
+                        ? "START"
+                        : event.error() ? "ERROR" : "SUCCESS";
+            }
+            case "workflow_step_start", "workflow_step_end" -> {
+                nodeId = event.toolName();
+                nodeName = event.toolName();
+                type = "WORKFLOW_STEP";
+                status = "workflow_step_start".equals(event.name())
                         ? "START"
                         : event.error() ? "ERROR" : "SUCCESS";
             }

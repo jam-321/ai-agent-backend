@@ -22,6 +22,7 @@ public record AgentExecutionContext(
         int maxToolsPerRound,
         int maxDegenerateRetries,
         int maxSameToolSignature,
+        int maxWorkflowSteps,
         Instant deadline) {
 
     public void checkDeadline() {

@@ -12,6 +12,7 @@ import com.jam.agent.conversation.persistence.repository.ConversationRepository;
 import com.jam.agent.conversation.persistence.repository.ConversationTurnRepository;
 import com.jam.agent.agent.persistence.repository.AgentConfigRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jam.agent.workflow.runtime.WorkflowConfig;
 import java.util.Optional;
 import java.util.Objects;
 import java.util.UUID;
@@ -183,6 +184,10 @@ public class AgentRunService {
                 properties.getLoop(),
                 agentConfig.magicParams(),
                 objectMapper);
+        WorkflowConfig workflow = WorkflowConfig.resolve(
+                properties.getWorkflow(),
+                agentConfig.magicParams(),
+                objectMapper);
         return new AgentExecutionContext(
                 userId,
                 conversationId,
@@ -195,6 +200,7 @@ public class AgentRunService {
                 loop.maxToolsPerRound(),
                 loop.maxDegenerateRetries(),
                 loop.maxSameToolSignature(),
+                workflow.maxSteps(),
                 AgentExecutionContext.deadline(loop.maxRunDuration()));
     }
 

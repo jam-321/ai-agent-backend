@@ -45,6 +45,20 @@
           AND column_name = 'enabled_tools'
     </select>
 
+    <select id="countAgentConfigExecutionTypeColumn" resultType="int">
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = 'agent_config'
+          AND column_name = 'execution_type'
+    </select>
+
+    <update id="addAgentConfigExecutionColumns">
+        ALTER TABLE agent_config
+        ADD COLUMN execution_type VARCHAR(32) NOT NULL DEFAULT 'LOOP' AFTER agent_key,
+        ADD COLUMN execution_key VARCHAR(64) DEFAULT NULL AFTER execution_type
+    </update>
+
     <update id="addAgentConfigEnabledToolsColumn">
         ALTER TABLE agent_config
         ADD COLUMN enabled_tools JSON DEFAULT NULL AFTER enabled_plugins
@@ -54,6 +68,8 @@
         CREATE TABLE agent_config (
             id BIGINT NOT NULL AUTO_INCREMENT,
             agent_key VARCHAR(32) NOT NULL,
+            execution_type VARCHAR(32) NOT NULL DEFAULT 'LOOP',
+            execution_key VARCHAR(64) DEFAULT NULL,
             system_prompt TEXT,
             enabled_plugins JSON,
             enabled_tools JSON DEFAULT NULL,

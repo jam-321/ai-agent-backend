@@ -27,15 +27,21 @@ public class AgentConfigInitializer implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        if (repository.count() > 0) {
-            return;
+        if (repository.findByKey("general").isEmpty()) {
+            repository.insert("general", GENERAL_PROMPT, "[]", ALL_BUILTIN_TOOLS, "{}");
         }
-        repository.insert("general", GENERAL_PROMPT, "[]", ALL_BUILTIN_TOOLS, "{}");
-        repository.insert(
-                "with_time",
-                GENERAL_PROMPT,
-                "[\"time_inject\"]",
-                ALL_BUILTIN_TOOLS,
-                "{}");
+        if (repository.findByKey("with_time").isEmpty()) {
+            repository.insert("with_time", GENERAL_PROMPT, "[\"time_inject\"]", ALL_BUILTIN_TOOLS, "{}");
+        }
+        if (repository.findByKey("time_workflow").isEmpty()) {
+            repository.insert(
+                    "time_workflow",
+                    GENERAL_PROMPT,
+                    "[]",
+                    "[\"current_time\"]",
+                    "{\"workflow\":{\"maxSteps\":8}}",
+                    "WORKFLOW",
+                    "time_report");
+        }
     }
 }

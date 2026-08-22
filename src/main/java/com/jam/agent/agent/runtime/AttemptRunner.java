@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
  * persistence failures are not replayed.
  */
 @Component
-public class AttemptRunner {
+public class AttemptRunner implements AgentExecutor {
 
     private final AgentLoop loop;
     private final ConversationContextManager contextManager;
@@ -30,7 +30,13 @@ public class AttemptRunner {
         this.events = events;
     }
 
-    public RunResult run(AgentExecutionContext context) {
+    @Override
+    public String executionType() {
+        return "LOOP";
+    }
+
+    @Override
+    public AgentRunResult execute(AgentExecutionContext context) {
         List<Message> history = contextManager.rebuild(
                 context.userId(),
                 context.conversationId(),
@@ -42,7 +48,7 @@ public class AttemptRunner {
             events.lifecycle(context, attemptNo, null, "attempt_start");
 
             try {
-                return new RunResult(attemptNo, loop.run(context, attemptNo, history));
+                return new AgentRunResult(attemptNo, loop.run(context, attemptNo, history));
             } catch (RetryableModelException exception) {
                 lastFailure = exception;
                 events.lifecycle(context, attemptNo, null, "attempt_retryable_error");
@@ -55,6 +61,4 @@ public class AttemptRunner {
         throw new AgentRunException("模型重试失败。", false);
     }
 
-    public record RunResult(int attemptNo, String answer) {
-    }
 }

@@ -19,4 +19,8 @@ public interface SchemaMigrationMapper {
     int countAgentConfigEnabledToolsColumn();
 
     void addAgentConfigEnabledToolsColumn();
+
+    int countAgentConfigExecutionTypeColumn();
+
+    void addAgentConfigExecutionColumns();
 }

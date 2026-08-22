@@ -58,6 +58,29 @@ public class Dispatcher {
         dispatch(AgentEvent.generate(context, attemptNo, content, error));
     }
 
+    public void workflowStepStart(
+            AgentExecutionContext context,
+            int attemptNo,
+            int stepNo,
+            String stepId,
+            String runKey,
+            String content) {
+        dispatch(AgentEvent.workflowStepStart(
+                context, attemptNo, stepNo, stepId, runKey, content));
+    }
+
+    public void workflowStepEnd(
+            AgentExecutionContext context,
+            int attemptNo,
+            int stepNo,
+            String stepId,
+            String runKey,
+            String content,
+            boolean error) {
+        dispatch(AgentEvent.workflowStepEnd(
+                context, attemptNo, stepNo, stepId, runKey, content, error));
+    }
+
     private void dispatch(AgentEvent event) {
         for (EventRegistry.Entry entry : registry.entriesOf(event.name())) {
             if (!entry.system() && !event.enabledPlugins().contains(entry.id())) {
