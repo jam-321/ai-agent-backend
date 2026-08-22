@@ -1,6 +1,6 @@
 # AI Agent 方案设计（主线 1）
 
-> 更新日期：2026-08-17　目标：从零开发一个**真正可用**的 AI Agent 并发布到互联网。
+> 更新日期：2026-08-22　目标：从零开发一个**真正可用**的 AI Agent 并发布到互联网。
 
 ## 1. 目标与定位
 
@@ -74,9 +74,12 @@ flowchart LR
 - 工作流实现位于独立的 `com.jam.agent.workflow` 模块，第一版使用代码注册的轻量有向流程，步骤支持 `TOOL`、`MODEL`、`CONDITION` 和 `ANSWER`。工作流步骤通过 `workflow_step_start/end` 事件写入 `WORKFLOW_STEP` 节点，并复用现有 `ToolExecutor`、`ModelAdapter`、`ConversationContextManager` 和 `TurnFinalizer`。
 - `agent_config.enabled_tools` 是工具白名单：旧数据中的 `NULL` 表示启用全部已注册工具，显式空数组表示不启用工具，非空数组只暴露并允许执行列出的工具。
 - Tool 定义统一放在 `agent.tool.definition` 子包并按领域拆类，所有定义类实现 `AgentToolProvider`；`ToolRegistry` 通过 Spring 注入实现列表并生成不可变 Callback 注册表，`ToolExecutor` 只处理白名单校验、上下文注入、异常包装和事件发布。
-- `model_provider_config` 保存模型供应商连接，当前支持 OpenAI 兼容协议，字段包含 `base_url`、`api_key`、状态和可选 `user_id`。系统默认供应商使用 `env:DEEPSEEK_API_KEY`，也允许数据库原值；`agent_config` 只保存 `model_provider_key`、模型名和 temperature，避免多个 Agent 重复保存供应商凭据。
-- `ModelRegistry` 按供应商 Base URL 与解析后的 API Key 缓存客户端，每次模型调用应用当前 Agent 的模型名和 temperature。Agent 配方在 Turn 提交时固定到 `AgentExecutionContext`，因此会话下一轮切换 Agent 可以切换供应商或模型，运行中的 Turn 不漂移。
-- `/api/agents` 只返回供应商和模型元信息，不返回 API Key。`model_provider_config.user_id` 为未来用户私有供应商配置预留；正式开放用户录入原值 API Key 前必须增加服务端加密存储、所有权校验和脱敏管理接口。
+- `model_provider_config` 保存模型供应商连接和模型目录，字段包含协议类型、`base_url`、通用 `endpoint_path`、`api_key`、模型 JSON、状态和可选 `user_id`。`user_id = NULL` 是系统供应商，非空是当前用户私有供应商；API Key 支持数据库原值或 `env:变量名` 引用。
+- 模型协议与供应商品牌解耦：当前支持 `OPENAI_CHAT_COMPLETIONS` 和 `OPENAI_RESPONSES`，并保留 `ANTHROPIC_MESSAGES` 扩展位。Chat Completions 由 Spring AI 适配，Responses 由原始 JSON 适配器处理 `input`、typed output item、`function_call` 和 `function_call_output`，应用自行维护上下文并固定 `store=false`。
+- 内置供应商目录包含 DeepSeek、Zhipu GLM、proaiapi 和呆呆兽中转站。DeepSeek 和 GLM 使用 OpenAI Chat Completions；两个中转站使用 OpenAI Responses。前端只展示脱敏模型目录，协议适配器未注册时才标记为不可用。
+- `agent_config` 保存 Agent 默认的供应商、模型名和 temperature；`conversation` 保存用户在该会话最后选择的供应商和模型。新会话未显式选择时使用 Agent 默认值，已有会话未显式选择时沿用会话值，前端显式切换则从下一 Turn 生效。
+- 模型配置在 Turn 提交时固定到独立的 `AgentExecutionContext.modelConfig`，因此同一会话可以切换 Agent 或模型，而运行中的 Turn 不受随后配置变化影响。`ModelRegistry` 按供应商连接缓存客户端，每次调用应用该 Turn 的模型名和 temperature。
+- `/api/agents` 返回 Agent 配方的脱敏模型元信息；`/api/models` 返回当前用户可见的扁平模型目录和可用状态，两个接口都不返回 API Key。前端保持两个选择框：切换 Agent 时自动选中该 Agent 默认模型，单独切换模型时保留当前 Agent；不增加“跟随 Agent 默认模型”第三个选项。正式开放用户录入原值 API Key 前必须增加服务端加密存储、所有权校验和脱敏管理接口。
 - `agent_config.magic_params` 用于 Agent 级运行参数扩展，当前支持 `loop.maxAttempts`、`loop.maxToolRounds`、`loop.maxToolsPerRound`、`loop.maxRunDurationSeconds`、`loop.maxDegenerateRetries` 和 `loop.maxSameToolSignature`。YAML 中的值作为默认值和安全上限，数据库配置不能超过上限。
 - 工作流可通过 `magic_params.workflow.maxSteps` 覆盖步骤预算，但不能超过 YAML 的 `agent.workflow.max-steps` 全局上限。第一版不引入数据库工作流编辑器、BPMN 或中途断点恢复。
 - 插件事件使用独立快照，消息上下文使用 `AgentTurnContext`；这保留了并行工具执行能力，并为后续工具拦截、上下文压缩等扩展留下事件槽位。
@@ -85,8 +88,9 @@ flowchart LR
 
 ## 6. 前端设计（Vue 3 + Vite）
 
-- `src/App.vue`：极简聊天页（消息列表 + 输入框 + 发送）
+- `src/App.vue`：聊天、会话侧栏、Agent/模型选择、执行进度和管理员监控入口
 - `src/api/chat.js`：封装 `/api/chat` 调用
+- `src/api/models.js`：读取当前用户可见的模型目录；会话选择随 `/api/chat` 提交并持久化
 - `vite.config.js`：开发代理 `/api` → `http://localhost:8080`，避免跨域
 
 ## 7. 目录结构

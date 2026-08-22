@@ -19,6 +19,10 @@ public class ConversationTurnEntity {
     private Boolean hidden;
     private String errorMessage;
     private String traceId;
+    private String agentKey;
+    private String modelProviderKey;
+    private String modelName;
+    private String protocolType;
     private Integer feedbackType;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -85,6 +89,38 @@ public class ConversationTurnEntity {
 
     public void setTraceId(String traceId) {
         this.traceId = traceId;
+    }
+
+    public String getAgentKey() {
+        return agentKey;
+    }
+
+    public void setAgentKey(String agentKey) {
+        this.agentKey = agentKey;
+    }
+
+    public String getModelProviderKey() {
+        return modelProviderKey;
+    }
+
+    public void setModelProviderKey(String modelProviderKey) {
+        this.modelProviderKey = modelProviderKey;
+    }
+
+    public String getModelName() {
+        return modelName;
+    }
+
+    public void setModelName(String modelName) {
+        this.modelName = modelName;
+    }
+
+    public String getProtocolType() {
+        return protocolType;
+    }
+
+    public void setProtocolType(String protocolType) {
+        this.protocolType = protocolType;
     }
 
     public Integer getFeedbackType() {

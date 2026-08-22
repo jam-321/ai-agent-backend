@@ -10,6 +10,8 @@
         <result property="title" column="title"/>
         <result property="source" column="source"/>
         <result property="agentKey" column="agent_key"/>
+        <result property="modelProviderKey" column="model_provider_key"/>
+        <result property="modelName" column="model_name"/>
         <result property="deleted" column="is_deleted"/>
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
@@ -17,7 +19,8 @@
     </resultMap>
 
     <sql id="Columns">
-        id, user_id, title, source, agent_key, is_deleted, created_at, updated_at
+        id, user_id, title, source, agent_key, model_provider_key, model_name,
+        is_deleted, created_at, updated_at
     </sql>
 
     <select id="selectForUser" resultMap="ConversationResult">
@@ -48,6 +51,16 @@
     <update id="updateAgentKey">
         UPDATE conversation
         SET agent_key = #{agentKey}
+        WHERE id = #{conversationId}
+          AND user_id = #{userId}
+          AND is_deleted = 0
+    </update>
+
+    <update id="updateExecutionSelection">
+        UPDATE conversation
+        SET agent_key = #{agentKey},
+            model_provider_key = #{modelProviderKey},
+            model_name = #{modelName}
         WHERE id = #{conversationId}
           AND user_id = #{userId}
           AND is_deleted = 0

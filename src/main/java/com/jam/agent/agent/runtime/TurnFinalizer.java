@@ -44,6 +44,8 @@ public class TurnFinalizer {
                     "assistant",
                     finalAnswer,
                     context.traceId(),
+                    context.agentConfig().agentKey(),
+                    context.modelConfig(),
                     null);
             events.generate(context, attemptNo, finalAnswer, false);
             conversations.touch(context.userId(), context.conversationId());
@@ -64,6 +66,8 @@ public class TurnFinalizer {
                     "assistant",
                     FAILURE_MESSAGE,
                     context.traceId(),
+                    context.agentConfig().agentKey(),
+                    context.modelConfig(),
                     errorDetail);
             events.generate(context, attemptNo, errorDetail, true);
             conversations.touch(context.userId(), context.conversationId());

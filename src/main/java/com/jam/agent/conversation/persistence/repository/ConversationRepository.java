@@ -21,10 +21,21 @@ public class ConversationRepository {
     }
 
     public long insert(long userId, String title, String agentKey) {
+        return insert(userId, title, agentKey, null, null);
+    }
+
+    public long insert(
+            long userId,
+            String title,
+            String agentKey,
+            String modelProviderKey,
+            String modelName) {
         ConversationEntity conversation = new ConversationEntity();
         conversation.setUserId(userId);
         conversation.setTitle(title);
         conversation.setAgentKey(agentKey);
+        conversation.setModelProviderKey(modelProviderKey);
+        conversation.setModelName(modelName);
         mapper.insert(conversation);
 
         if (conversation.getId() == null) {
@@ -52,6 +63,20 @@ public class ConversationRepository {
         mapper.updateAgentKey(userId, conversationId, agentKey);
     }
 
+    public void updateExecutionSelection(
+            long userId,
+            long conversationId,
+            String agentKey,
+            String modelProviderKey,
+            String modelName) {
+        mapper.updateExecutionSelection(
+                userId,
+                conversationId,
+                agentKey,
+                modelProviderKey,
+                modelName);
+    }
+
     public void touch(long userId, long conversationId) {
         mapper.touch(userId, conversationId);
     }
@@ -73,6 +98,8 @@ public class ConversationRepository {
                 conversation.getTitle(),
                 conversation.getSource(),
                 conversation.getAgentKey(),
+                conversation.getModelProviderKey(),
+                conversation.getModelName(),
                 conversation.getCreatedAt(),
                 conversation.getUpdatedAt());
     }
@@ -83,6 +110,8 @@ public class ConversationRepository {
             String title,
             String source,
             String agentKey,
+            String modelProviderKey,
+            String modelName,
             LocalDateTime createdAt,
             LocalDateTime updatedAt) {
     }

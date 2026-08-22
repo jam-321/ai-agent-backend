@@ -1,11 +1,12 @@
 package com.jam.agent.agent.model;
 
-/** Immutable model recipe captured with an Agent at Turn submission time. */
+/** Turn 提交时捕获的不可变模型配置，保证运行过程中配置不漂移。 */
 public record AgentModelConfig(
         String providerKey,
         String providerName,
         String protocolType,
         String baseUrl,
+        String endpointPath,
         String apiKey,
         String modelName,
         Double temperature) {
@@ -15,6 +16,7 @@ public record AgentModelConfig(
         providerName = normalize(providerName);
         protocolType = normalize(protocolType);
         baseUrl = normalize(baseUrl);
+        endpointPath = normalize(endpointPath);
         apiKey = normalize(apiKey);
         modelName = normalize(modelName);
         if (temperature != null && (temperature < 0 || temperature > 2)) {
@@ -32,6 +34,7 @@ public record AgentModelConfig(
         return "AgentModelConfig[providerKey=" + providerKey
                 + ", protocolType=" + protocolType
                 + ", baseUrl=" + baseUrl
+                + ", endpointPath=" + endpointPath
                 + ", apiKey=***"
                 + ", modelName=" + modelName
                 + ", temperature=" + temperature + "]";

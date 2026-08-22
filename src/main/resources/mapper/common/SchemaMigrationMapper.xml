@@ -50,9 +50,11 @@
             user_id BIGINT DEFAULT NULL,
             provider_key VARCHAR(64) NOT NULL,
             provider_name VARCHAR(128) NOT NULL,
-            protocol_type VARCHAR(32) NOT NULL DEFAULT 'OPENAI_COMPATIBLE',
+            protocol_type VARCHAR(32) NOT NULL DEFAULT 'OPENAI_CHAT_COMPLETIONS',
             base_url VARCHAR(500) NOT NULL,
+            endpoint_path VARCHAR(255) DEFAULT NULL,
             api_key VARCHAR(1000) NOT NULL,
+            models JSON DEFAULT NULL,
             status TINYINT NOT NULL DEFAULT 1,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -63,13 +65,108 @@
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     </update>
 
-    <insert id="insertDefaultModelProvider">
+    <insert id="insertBuiltInModelProviders">
         INSERT IGNORE INTO model_provider_config (
-            user_id, provider_key, provider_name, protocol_type, base_url, api_key, status)
-        VALUES (
-            NULL, 'deepseek', 'DeepSeek', 'OPENAI_COMPATIBLE',
-            'https://api.deepseek.com', 'env:DEEPSEEK_API_KEY', 1)
+            user_id, provider_key, provider_name, protocol_type, base_url,
+            endpoint_path, api_key, models, status)
+        VALUES
+            (
+                NULL, 'deepseek', 'DeepSeek', 'OPENAI_CHAT_COMPLETIONS',
+                'https://api.deepseek.com', '/v1/chat/completions',
+                'env:DEEPSEEK_API_KEY',
+                JSON_ARRAY(
+                    JSON_OBJECT('modelName', 'deepseek-v4-flash', 'displayName', 'DeepSeek V4 Flash'),
+                    JSON_OBJECT('modelName', 'deepseek-v4-pro', 'displayName', 'DeepSeek V4 Pro'),
+                    JSON_OBJECT('modelName', 'deepseek-v4-flash-vision-exp', 'displayName', 'DeepSeek V4 Flash Vision')),
+                1
+            ),
+            (
+                NULL, 'zhipu-glm', 'Zhipu GLM', 'OPENAI_CHAT_COMPLETIONS',
+                'https://open.bigmodel.cn/api/coding/paas/v4', '/chat/completions',
+                'env:ZHIPU_API_KEY',
+                JSON_ARRAY(JSON_OBJECT('modelName', 'glm-5.3', 'displayName', 'GLM 5.3')),
+                1
+            ),
+            (
+                NULL, 'relay-proaiapi', 'proaiapi', 'OPENAI_RESPONSES',
+                'https://proaiapi.tech/v1', '/responses',
+                'env:PROAIAPI_API_KEY',
+                JSON_ARRAY(JSON_OBJECT('modelName', 'gpt-5.6-luna', 'displayName', 'GPT 5.6 Luna')),
+                1
+            ),
+            (
+                NULL, 'relay-ddshub', '呆呆兽', 'OPENAI_RESPONSES',
+                'https://www.ddshub.cc', '/responses',
+                'env:DDSHUB_API_KEY',
+                JSON_ARRAY(JSON_OBJECT('modelName', 'gpt-5.6-sol', 'displayName', 'GPT 5.6 Sol')),
+                1
+            )
     </insert>
+
+    <select id="countModelProviderCatalogColumn" resultType="int">
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = 'model_provider_config'
+          AND column_name = 'models'
+    </select>
+
+    <select id="countModelProviderEndpointColumn" resultType="int">
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = 'model_provider_config'
+          AND column_name = 'endpoint_path'
+    </select>
+
+    <select id="countModelProviderLegacyPathColumn" resultType="int">
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = 'model_provider_config'
+          AND column_name = 'chat_completions_path'
+    </select>
+
+    <update id="renameModelProviderEndpointColumn">
+        ALTER TABLE model_provider_config
+        CHANGE COLUMN chat_completions_path endpoint_path VARCHAR(255) DEFAULT NULL
+    </update>
+
+    <update id="addModelProviderEndpointColumn">
+        ALTER TABLE model_provider_config
+        ADD COLUMN endpoint_path VARCHAR(255) DEFAULT NULL AFTER base_url
+    </update>
+
+    <update id="addModelProviderCatalogColumn">
+        ALTER TABLE model_provider_config
+        ADD COLUMN models JSON DEFAULT NULL AFTER api_key
+    </update>
+
+    <update id="updateDefaultProviderCatalog">
+        UPDATE model_provider_config
+        SET endpoint_path = '/v1/chat/completions',
+            models = JSON_ARRAY(
+                JSON_OBJECT('modelName', 'deepseek-v4-flash', 'displayName', 'DeepSeek V4 Flash'),
+                JSON_OBJECT('modelName', 'deepseek-v4-pro', 'displayName', 'DeepSeek V4 Pro'),
+                JSON_OBJECT('modelName', 'deepseek-v4-flash-vision-exp', 'displayName', 'DeepSeek V4 Flash Vision'))
+        WHERE provider_key = 'deepseek'
+          AND models IS NULL
+    </update>
+
+    <update id="updateBuiltInProviderProtocols">
+        UPDATE model_provider_config
+        SET protocol_type = CASE provider_key
+                WHEN 'deepseek' THEN 'OPENAI_CHAT_COMPLETIONS'
+                WHEN 'zhipu-glm' THEN 'OPENAI_CHAT_COMPLETIONS'
+                ELSE 'OPENAI_RESPONSES'
+            END,
+            endpoint_path = CASE provider_key
+                WHEN 'deepseek' THEN '/v1/chat/completions'
+                WHEN 'zhipu-glm' THEN '/chat/completions'
+                ELSE '/responses'
+            END
+        WHERE provider_key IN ('deepseek', 'zhipu-glm', 'relay-proaiapi', 'relay-ddshub')
+    </update>
 
     <select id="countAgentConfigEnabledToolsColumn" resultType="int">
         SELECT COUNT(*)
@@ -102,6 +199,36 @@
         ADD COLUMN model_temperature DECIMAL(4,3) NOT NULL DEFAULT 0.700 AFTER model_name,
         ADD CONSTRAINT fk_agent_config_model_provider
             FOREIGN KEY (model_provider_key) REFERENCES model_provider_config (provider_key)
+    </update>
+
+    <select id="countConversationModelProviderColumn" resultType="int">
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = 'conversation'
+          AND column_name = 'model_provider_key'
+    </select>
+
+    <update id="addConversationModelColumns">
+        ALTER TABLE conversation
+        ADD COLUMN model_provider_key VARCHAR(64) DEFAULT NULL AFTER agent_key,
+        ADD COLUMN model_name VARCHAR(128) DEFAULT NULL AFTER model_provider_key
+    </update>
+
+    <select id="countConversationTurnModelColumn" resultType="int">
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = 'conversation_turn'
+          AND column_name = 'model_provider_key'
+    </select>
+
+    <update id="addConversationTurnModelColumns">
+        ALTER TABLE conversation_turn
+        ADD COLUMN agent_key VARCHAR(32) DEFAULT NULL AFTER trace_id,
+        ADD COLUMN model_provider_key VARCHAR(64) DEFAULT NULL AFTER agent_key,
+        ADD COLUMN model_name VARCHAR(128) DEFAULT NULL AFTER model_provider_key,
+        ADD COLUMN protocol_type VARCHAR(32) DEFAULT NULL AFTER model_name
     </update>
 
     <update id="addAgentConfigExecutionColumns">

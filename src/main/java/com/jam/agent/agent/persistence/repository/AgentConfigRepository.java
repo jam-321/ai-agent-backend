@@ -103,6 +103,7 @@ public class AgentConfigRepository {
                         provider == null ? null : provider.providerName(),
                         provider == null ? null : provider.protocolType(),
                         provider == null ? null : provider.baseUrl(),
+                        provider == null ? null : provider.endpointPath(),
                         provider == null ? null : provider.apiKey(),
                         entity.getModelName(),
                         entity.getModelTemperature()));

@@ -23,6 +23,13 @@ public interface ConversationMapper extends BaseMapper<ConversationEntity> {
             @Param("conversationId") long conversationId,
             @Param("agentKey") String agentKey);
 
+    int updateExecutionSelection(
+            @Param("userId") long userId,
+            @Param("conversationId") long conversationId,
+            @Param("agentKey") String agentKey,
+            @Param("modelProviderKey") String modelProviderKey,
+            @Param("modelName") String modelName);
+
     int touch(
             @Param("userId") long userId,
             @Param("conversationId") long conversationId);

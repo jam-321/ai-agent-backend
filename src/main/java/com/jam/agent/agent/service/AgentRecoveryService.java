@@ -54,6 +54,7 @@ public class AgentRecoveryService {
                 turn.traceId(),
                 turn.content(),
                 AgentConfigSnapshot.defaultConfig(),
+                AgentConfigSnapshot.defaultConfig().modelConfig(),
                 properties.getLoop().getMaxAttempts(),
                 properties.getLoop().getMaxToolRounds(),
                 properties.getLoop().getMaxToolsPerRound(),

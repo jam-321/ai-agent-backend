@@ -1,5 +1,6 @@
 package com.jam.agent.conversation.persistence.repository;
 
+import com.jam.agent.agent.model.AgentModelConfig;
 import com.jam.agent.conversation.persistence.entity.ConversationTurnEntity;
 import com.jam.agent.conversation.persistence.mapper.ConversationTurnMapper;
 import java.time.LocalDateTime;
@@ -28,6 +29,8 @@ public class ConversationTurnRepository {
             String type,
             String content,
             String traceId,
+            String agentKey,
+            AgentModelConfig modelConfig,
             String errorMessage) {
         int count = mapper.insertOwned(
                 userId,
@@ -36,6 +39,10 @@ public class ConversationTurnRepository {
                 type,
                 content,
                 traceId,
+                agentKey,
+                modelConfig == null ? null : modelConfig.providerKey(),
+                modelConfig == null ? null : modelConfig.modelName(),
+                modelConfig == null ? null : modelConfig.protocolType(),
                 errorMessage);
         if (count != 1) {
             throw new IllegalArgumentException("会话不存在。");
@@ -98,6 +105,10 @@ public class ConversationTurnRepository {
                 Boolean.TRUE.equals(turn.getHidden()),
                 turn.getErrorMessage(),
                 turn.getTraceId(),
+                turn.getAgentKey(),
+                turn.getModelProviderKey(),
+                turn.getModelName(),
+                turn.getProtocolType(),
                 turn.getCreatedAt(),
                 turn.getUpdatedAt());
     }
@@ -111,6 +122,10 @@ public class ConversationTurnRepository {
             boolean hidden,
             String errorMessage,
             String traceId,
+            String agentKey,
+            String modelProviderKey,
+            String modelName,
+            String protocolType,
             LocalDateTime createdAt,
             LocalDateTime updatedAt) {
     }

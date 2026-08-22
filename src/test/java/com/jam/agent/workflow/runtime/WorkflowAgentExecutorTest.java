@@ -54,6 +54,8 @@ class WorkflowAgentExecutorTest {
                 "trace",
                 "query",
                 new AgentConfigSnapshot("test", "prompt", Set.of(), Set.of(), "{}", "WORKFLOW", "test"),
+                new com.jam.agent.agent.model.AgentModelConfig(
+                        null, null, null, null, null, null, null, null),
                 1,
                 2,
                 1,

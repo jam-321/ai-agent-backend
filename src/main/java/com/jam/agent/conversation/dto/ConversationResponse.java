@@ -6,6 +6,8 @@ public record ConversationResponse(
         Long id,
         String title,
         String agentKey,
+        String modelProviderKey,
+        String modelName,
         LocalDateTime createdAt,
         LocalDateTime updatedAt) {
 }

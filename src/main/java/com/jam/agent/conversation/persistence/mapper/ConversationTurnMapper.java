@@ -18,6 +18,10 @@ public interface ConversationTurnMapper extends BaseMapper<ConversationTurnEntit
             @Param("type") String type,
             @Param("content") String content,
             @Param("traceId") String traceId,
+            @Param("agentKey") String agentKey,
+            @Param("modelProviderKey") String modelProviderKey,
+            @Param("modelName") String modelName,
+            @Param("protocolType") String protocolType,
             @Param("errorMessage") String errorMessage);
 
     ConversationTurnEntity selectForUser(

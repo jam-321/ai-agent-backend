@@ -1,6 +1,7 @@
 package com.jam.agent.agent.runtime;
 
 import com.jam.agent.agent.config.AgentConfigSnapshot;
+import com.jam.agent.agent.model.AgentModelConfig;
 import java.time.Duration;
 import java.time.Instant;
 
@@ -17,6 +18,7 @@ public record AgentExecutionContext(
         String traceId,
         String currentQuery,
         AgentConfigSnapshot agentConfig,
+        AgentModelConfig modelConfig,
         int maxAttempts,
         int maxToolRounds,
         int maxToolsPerRound,

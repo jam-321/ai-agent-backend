@@ -13,6 +13,10 @@
         <result property="hidden" column="is_hidden"/>
         <result property="errorMessage" column="error_message"/>
         <result property="traceId" column="trace_id"/>
+        <result property="agentKey" column="agent_key"/>
+        <result property="modelProviderKey" column="model_provider_key"/>
+        <result property="modelName" column="model_name"/>
+        <result property="protocolType" column="protocol_type"/>
         <result property="feedbackType" column="feedback_type"/>
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
@@ -30,7 +34,8 @@
 
     <sql id="TurnColumns">
         t.id, t.conversation_id, t.turn_id, t.type, t.content, t.is_hidden,
-        t.error_message, t.trace_id, t.feedback_type, t.created_at, t.updated_at
+        t.error_message, t.trace_id, t.agent_key, t.model_provider_key,
+        t.model_name, t.protocol_type, t.feedback_type, t.created_at, t.updated_at
     </sql>
 
     <select id="findMaxTurnId" resultType="int">
@@ -44,9 +49,11 @@
 
     <insert id="insertOwned">
         INSERT INTO conversation_turn (
-            conversation_id, turn_id, type, content, error_message, trace_id
+            conversation_id, turn_id, type, content, error_message, trace_id,
+            agent_key, model_provider_key, model_name, protocol_type
         )
-        SELECT c.id, #{turnId}, #{type}, #{content}, #{errorMessage}, #{traceId}
+        SELECT c.id, #{turnId}, #{type}, #{content}, #{errorMessage}, #{traceId},
+               #{agentKey}, #{modelProviderKey}, #{modelName}, #{protocolType}
         FROM conversation c
         WHERE c.id = #{conversationId}
           AND c.user_id = #{userId}
@@ -88,7 +95,8 @@
     <select id="selectIncompleteTurns" resultMap="TurnResult">
         SELECT
             u.id, u.conversation_id, u.turn_id, u.type, u.content, u.is_hidden,
-            u.error_message, u.trace_id, u.feedback_type, u.created_at, u.updated_at
+            u.error_message, u.trace_id, u.agent_key, u.model_provider_key,
+            u.model_name, u.protocol_type, u.feedback_type, u.created_at, u.updated_at
         FROM conversation_turn u
         WHERE u.type = 'user'
           AND NOT EXISTS (

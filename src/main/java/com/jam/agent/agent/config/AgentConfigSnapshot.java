@@ -46,7 +46,7 @@ public record AgentConfigSnapshot(
                 ? null
                 : executionKey.trim();
         modelConfig = modelConfig == null
-                ? new AgentModelConfig(null, null, null, null, null, null, null)
+                ? new AgentModelConfig(null, null, null, null, null, null, null, null)
                 : modelConfig;
     }
 

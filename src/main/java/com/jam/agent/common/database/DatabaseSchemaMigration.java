@@ -7,8 +7,9 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 /**
- * Applies the one compatibility migration needed by databases created before admin support.
- * New installations receive the same column from schema.sql.
+ * 为历史数据库补齐新增表和字段；全新数据库由 schema.sql 创建相同结构。
+ *
+ * <p>这里的检查必须保持幂等，确保不同历史版本都能重复启动。
  */
 @Component
 @Order(Integer.MIN_VALUE)
@@ -31,8 +32,20 @@ public class DatabaseSchemaMigration implements ApplicationRunner {
         if (mapper.countModelProviderConfigTable() == 0) {
             mapper.createModelProviderConfigTable();
         }
-        // 先创建默认供应商，旧 agent_config 增加非空外键列时才能安全迁移。
-        mapper.insertDefaultModelProvider();
+        if (mapper.countModelProviderEndpointColumn() == 0) {
+            if (mapper.countModelProviderLegacyPathColumn() > 0) {
+                mapper.renameModelProviderEndpointColumn();
+            } else {
+                mapper.addModelProviderEndpointColumn();
+            }
+        }
+        if (mapper.countModelProviderCatalogColumn() == 0) {
+            mapper.addModelProviderCatalogColumn();
+        }
+        // 先创建内置供应商，旧 agent_config 增加非空外键列时才能安全迁移。
+        mapper.insertBuiltInModelProviders();
+        mapper.updateDefaultProviderCatalog();
+        mapper.updateBuiltInProviderProtocols();
         if (mapper.countAgentConfigTable() == 0) {
             mapper.createAgentConfigTable();
         }
@@ -44,6 +57,12 @@ public class DatabaseSchemaMigration implements ApplicationRunner {
         }
         if (mapper.countAgentConfigModelProviderColumn() == 0) {
             mapper.addAgentConfigModelColumns();
+        }
+        if (mapper.countConversationModelProviderColumn() == 0) {
+            mapper.addConversationModelColumns();
+        }
+        if (mapper.countConversationTurnModelColumn() == 0) {
+            mapper.addConversationTurnModelColumns();
         }
     }
 }

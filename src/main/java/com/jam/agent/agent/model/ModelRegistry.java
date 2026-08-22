@@ -1,6 +1,7 @@
 package com.jam.agent.agent.model;
 
 import com.jam.agent.agent.runtime.AgentRunException;
+import com.jam.agent.agent.model.protocol.ModelCredentials;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.ai.chat.model.ChatModel;
@@ -10,11 +11,9 @@ import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-/** Builds and caches model clients while keeping per-Agent model options independent. */
+/** 根据供应商连接构建并缓存模型客户端，同时保留每个 Turn 的独立模型参数。 */
 @Component
 public class ModelRegistry {
-
-    private static final String OPENAI_COMPATIBLE = "OPENAI_COMPATIBLE";
 
     private final ChatModel defaultModel;
     private final String defaultBaseUrl;
@@ -38,7 +37,7 @@ public class ModelRegistry {
 
     public ResolvedModel resolve(AgentModelConfig configured) {
         AgentModelConfig config = configured == null
-                ? new AgentModelConfig(null, null, null, null, null, null, null)
+                ? new AgentModelConfig(null, null, null, null, null, null, null, null)
                 : configured;
         validateProvider(config);
 
@@ -47,7 +46,7 @@ public class ModelRegistry {
                 : normalizeBaseUrl(config.baseUrl());
         String apiKey = config.apiKey() == null
                 ? defaultApiKey
-                : resolveApiKey(config.apiKey());
+                : ModelCredentials.resolve(config.apiKey());
         String modelName = config.modelName() == null
                 ? defaultModelName
                 : config.modelName();
@@ -55,14 +54,17 @@ public class ModelRegistry {
                 ? defaultTemperature
                 : config.temperature();
 
-        if (!hasUsableApiKey(apiKey)) {
+        if (!ModelCredentials.isUsable(apiKey)) {
             return new ResolvedModel(defaultModel, modelName, temperature, false);
         }
 
-        ChatModel model = usesDefaultConnection(baseUrl, apiKey)
+        String completionsPath = config.endpointPath() == null
+                ? "/v1/chat/completions"
+                : config.endpointPath();
+        ChatModel model = usesDefaultConnection(baseUrl, completionsPath, apiKey)
                 ? defaultModel
                 : models.computeIfAbsent(
-                        new ConnectionKey(baseUrl, apiKey),
+                        new ConnectionKey(baseUrl, completionsPath, apiKey),
                         key -> createOpenAiCompatibleModel(key, modelName, temperature));
         return new ResolvedModel(model, modelName, temperature, true);
     }
@@ -73,12 +75,6 @@ public class ModelRegistry {
                     "模型供应商不可用或未启用：" + config.providerKey(),
                     false);
         }
-        if (config.protocolType() != null
-                && !OPENAI_COMPATIBLE.equalsIgnoreCase(config.protocolType())) {
-            throw new AgentRunException(
-                    "暂不支持模型协议：" + config.protocolType(),
-                    false);
-        }
     }
 
     private ChatModel createOpenAiCompatibleModel(
@@ -87,6 +83,7 @@ public class ModelRegistry {
             double temperature) {
         OpenAiApi api = OpenAiApi.builder()
                 .baseUrl(connection.baseUrl())
+                .completionsPath(connection.completionsPath())
                 .apiKey(connection.apiKey())
                 .build();
         OpenAiChatOptions defaults = OpenAiChatOptions.builder()
@@ -99,22 +96,13 @@ public class ModelRegistry {
                 .build();
     }
 
-    private String resolveApiKey(String configured) {
-        if (!configured.regionMatches(true, 0, "env:", 0, 4)) {
-            return configured;
-        }
-        String variableName = configured.substring(4).trim();
-        return variableName.isEmpty() ? null : System.getenv(variableName);
-    }
-
-    private boolean usesDefaultConnection(String baseUrl, String apiKey) {
-        return baseUrl.equals(defaultBaseUrl) && apiKey.equals(defaultApiKey);
-    }
-
-    private boolean hasUsableApiKey(String apiKey) {
-        return apiKey != null
-                && !apiKey.isBlank()
-                && !apiKey.toLowerCase().contains("dummy");
+    private boolean usesDefaultConnection(
+            String baseUrl,
+            String completionsPath,
+            String apiKey) {
+        return baseUrl.equals(defaultBaseUrl)
+                && "/v1/chat/completions".equals(completionsPath)
+                && apiKey.equals(defaultApiKey);
     }
 
     private static String normalizeBaseUrl(String baseUrl) {
@@ -132,7 +120,10 @@ public class ModelRegistry {
             boolean enabled) {
     }
 
-    /** API Key participates in cache identity but is never exposed outside this class. */
-    private record ConnectionKey(String baseUrl, String apiKey) {
+    /** API Key 参与客户端缓存标识，但不会离开本类或进入日志。 */
+    private record ConnectionKey(
+            String baseUrl,
+            String completionsPath,
+            String apiKey) {
     }
 }

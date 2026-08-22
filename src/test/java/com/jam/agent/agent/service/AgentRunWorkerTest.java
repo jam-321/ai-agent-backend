@@ -63,6 +63,8 @@ class AgentRunWorkerTest {
                         "{}",
                         "LOOP",
                         null),
+                new com.jam.agent.agent.model.AgentModelConfig(
+                        null, null, null, null, null, null, null, null),
                 1,
                 2,
                 1,

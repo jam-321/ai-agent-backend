@@ -11,6 +11,8 @@ import com.jam.agent.agent.dto.ChatResponse;
 import com.jam.agent.conversation.persistence.repository.ConversationRepository;
 import com.jam.agent.conversation.persistence.repository.ConversationTurnRepository;
 import com.jam.agent.agent.persistence.repository.AgentConfigRepository;
+import com.jam.agent.agent.model.AgentModelConfig;
+import com.jam.agent.agent.model.persistence.repository.ModelProviderConfigRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jam.agent.workflow.runtime.WorkflowConfig;
 import java.util.Optional;
@@ -25,10 +27,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Accepts a chat turn, persists its user message, and hands execution to the Agent pool.
+ * 接收一次聊天请求，落库用户消息后交给 Agent 线程池异步执行。
  *
- * <p>The Redis lock is acquired before allocating turn_id. Ownership moves to the worker
- * only after the task is accepted by the executor; every earlier failure releases it here.
+ * <p>分配 turn_id 前先获取 Redis 会话锁；线程池成功接收任务后锁的所有权才移交给 Worker，
+ * 更早阶段的任何失败都由本服务释放锁。
  */
 @Service
 public class AgentRunService {
@@ -45,6 +47,7 @@ public class AgentRunService {
     private final TransactionTemplate transactions;
     private final Executor executor;
     private final AgentConfigRepository agentConfigs;
+    private final ModelProviderConfigRepository modelProviders;
     private final ObjectMapper objectMapper;
 
     public AgentRunService(
@@ -57,6 +60,7 @@ public class AgentRunService {
             TransactionTemplate transactions,
             @Qualifier("agentRunExecutor") Executor executor,
             AgentConfigRepository agentConfigs,
+            ModelProviderConfigRepository modelProviders,
             ObjectMapper objectMapper) {
         this.conversations = conversations;
         this.turns = turns;
@@ -67,6 +71,7 @@ public class AgentRunService {
         this.transactions = transactions;
         this.executor = executor;
         this.agentConfigs = agentConfigs;
+        this.modelProviders = modelProviders;
         this.objectMapper = objectMapper;
     }
 
@@ -78,20 +83,36 @@ public class AgentRunService {
             requestedAgentKey = null;
         }
 
-        ConversationSelection selection = resolveConversation(
-                userId,
-                request.conversationId(),
-                requestedAgentKey);
-        long conversationId = selection.conversationId();
-        String selectedAgentKey = selection.agentKey();
+        ConversationRepository.ConversationRecord existingConversation = request.conversationId() == null
+                ? null
+                : conversations.findForUser(userId, request.conversationId())
+                        .orElseThrow(NotFoundException::new);
+        String selectedAgentKey = requestedAgentKey != null
+                ? requestedAgentKey
+                : existingConversation == null
+                        ? "general"
+                        : Optional.ofNullable(existingConversation.agentKey()).orElse("general");
         AgentConfigSnapshot agentConfig = agentConfigs.findByKey(selectedAgentKey)
                 .orElseGet(() -> {
-                    log.warn("Conversation {} references unknown Agent recipe {}, using general",
-                            conversationId, selectedAgentKey);
+                    log.warn("Unknown Agent recipe {}, using general", selectedAgentKey);
                     return agentConfigs.findByKey("general")
                             .orElseGet(AgentConfigSnapshot::defaultConfig);
                 });
         String effectiveAgentKey = agentConfig.agentKey();
+        AgentModelConfig modelConfig = resolveModelConfig(
+                userId,
+                request,
+                existingConversation,
+                agentConfig,
+                requestedAgentKey != null);
+        long conversationId = existingConversation == null
+                ? conversations.insert(
+                        userId,
+                        null,
+                        effectiveAgentKey,
+                        modelConfig.providerKey(),
+                        modelConfig.modelName())
+                : existingConversation.id();
         String traceId = UUID.randomUUID().toString();
 
         if (!lock.tryLock(conversationId, traceId, properties.getLock().getTtl())) {
@@ -105,14 +126,16 @@ public class AgentRunService {
                     conversationId,
                     traceId,
                     query,
-                    effectiveAgentKey);
+                    effectiveAgentKey,
+                    modelConfig);
             AgentExecutionContext context = buildContext(
                     userId,
                     conversationId,
                     turnId,
                     traceId,
                     query,
-                    agentConfig);
+                    agentConfig,
+                    modelConfig);
 
             submitWorker(context);
             workerOwnsLock = true;
@@ -131,23 +154,38 @@ public class AgentRunService {
         return request.message().trim();
     }
 
-    private ConversationSelection resolveConversation(
+    private AgentModelConfig resolveModelConfig(
             long userId,
-            Long requestedConversationId,
-            String requestedAgentKey) {
-        if (requestedConversationId == null) {
-            String agentKey = requestedAgentKey == null ? "general" : requestedAgentKey;
-            return new ConversationSelection(
-                    conversations.insert(userId, null, agentKey),
-                    agentKey);
+            ChatRequest request,
+            ConversationRepository.ConversationRecord conversation,
+            AgentConfigSnapshot agentConfig,
+            boolean agentExplicitlySelected) {
+        String requestedProvider = normalizeModelValue(request.modelProviderKey());
+        String requestedModel = normalizeModelValue(request.modelName());
+        if ((requestedProvider == null) != (requestedModel == null)) {
+            throw new IllegalArgumentException("模型供应商和模型名称必须同时提供。");
         }
-        ConversationRepository.ConversationRecord conversation = conversations
-                .findForUser(userId, requestedConversationId)
-                .orElseThrow(NotFoundException::new);
-        String agentKey = requestedAgentKey == null
-                ? Optional.ofNullable(conversation.agentKey()).orElse("general")
-                : requestedAgentKey;
-        return new ConversationSelection(conversation.id(), agentKey);
+        if (requestedProvider != null) {
+            return modelProviders.requireModel(
+                    userId,
+                    requestedProvider,
+                    requestedModel,
+                    agentConfig.modelConfig().temperature());
+        }
+        // 只选择 Agent 时必须切到该 Agent 的默认模型，不能继续沿用旧会话模型。
+        if (agentExplicitlySelected) {
+            return agentConfig.modelConfig();
+        }
+        if (conversation != null
+                && conversation.modelProviderKey() != null
+                && conversation.modelName() != null) {
+            return modelProviders.requireModel(
+                    userId,
+                    conversation.modelProviderKey(),
+                    conversation.modelName(),
+                    agentConfig.modelConfig().temperature());
+        }
+        return agentConfig.modelConfig();
     }
 
     private int createUserTurn(
@@ -155,10 +193,16 @@ public class AgentRunService {
             long conversationId,
             String traceId,
             String query,
-            String agentKey) {
+            String agentKey,
+            AgentModelConfig modelConfig) {
         return Objects.requireNonNull(transactions.execute(status -> {
             conversations.lockForUpdate(userId, conversationId);
-            conversations.updateAgentKey(userId, conversationId, agentKey);
+            conversations.updateExecutionSelection(
+                    userId,
+                    conversationId,
+                    agentKey,
+                    modelConfig.providerKey(),
+                    modelConfig.modelName());
             int turnId = turns.nextTurnId(userId, conversationId);
             turns.insert(
                     userId,
@@ -167,6 +211,8 @@ public class AgentRunService {
                     "user",
                     query,
                     traceId,
+                    agentKey,
+                    modelConfig,
                     null);
             conversations.updateTitleIfEmpty(userId, conversationId, title(query));
             return turnId;
@@ -179,7 +225,8 @@ public class AgentRunService {
             int turnId,
             String traceId,
             String query,
-            AgentConfigSnapshot agentConfig) {
+            AgentConfigSnapshot agentConfig,
+            AgentModelConfig modelConfig) {
         AgentLoopConfig loop = AgentLoopConfig.resolve(
                 properties.getLoop(),
                 agentConfig.magicParams(),
@@ -195,6 +242,7 @@ public class AgentRunService {
                 traceId,
                 query,
                 agentConfig,
+                modelConfig,
                 loop.maxAttempts(),
                 loop.maxToolRounds(),
                 loop.maxToolsPerRound(),
@@ -217,6 +265,10 @@ public class AgentRunService {
         return agentKey == null || agentKey.isBlank() ? null : agentKey.trim();
     }
 
+    private String normalizeModelValue(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
     private String title(String query) {
         String cleaned = query.replaceAll("\\s+", " ").trim();
         return cleaned.codePoints()
@@ -237,6 +289,4 @@ public class AgentRunService {
     public static class NotFoundException extends RuntimeException {
     }
 
-    private record ConversationSelection(long conversationId, String agentKey) {
-    }
 }

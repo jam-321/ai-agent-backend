@@ -24,8 +24,9 @@ class ModelRegistryTest {
         ModelRegistry.ResolvedModel resolved = registry.resolve(new AgentModelConfig(
                 "deepseek",
                 "DeepSeek",
-                "OPENAI_COMPATIBLE",
+                "OPENAI_CHAT_COMPLETIONS",
                 "https://api.deepseek.com",
+                "/v1/chat/completions",
                 "test-key",
                 "deepseek-reasoner",
                 0.2));
@@ -48,8 +49,9 @@ class ModelRegistryTest {
         AgentModelConfig custom = new AgentModelConfig(
                 "custom",
                 "Custom",
-                "OPENAI_COMPATIBLE",
+                "OPENAI_CHAT_COMPLETIONS",
                 "https://example.com/v1",
+                "/chat/completions",
                 "custom-key",
                 "game-model",
                 0.5);
@@ -73,7 +75,7 @@ class ModelRegistryTest {
                 0.7);
 
         ModelRegistry.ResolvedModel resolved = registry.resolve(
-                new AgentModelConfig(null, null, null, null, null, null, null));
+                new AgentModelConfig(null, null, null, null, null, null, null, null));
 
         assertFalse(resolved.enabled());
     }

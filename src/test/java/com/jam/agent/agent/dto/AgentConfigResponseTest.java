@@ -24,8 +24,9 @@ class AgentConfigResponseTest {
                 new AgentModelConfig(
                         "custom-provider",
                         "Custom Provider",
-                        "OPENAI_COMPATIBLE",
+                        "OPENAI_CHAT_COMPLETIONS",
                         "https://example.com/v1",
+                        "/chat/completions",
                         "secret-key",
                         "game-model",
                         0.4));

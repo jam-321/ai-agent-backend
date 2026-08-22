@@ -27,6 +27,8 @@ public class ConversationService {
                         conversation.id(),
                         conversation.title(),
                         conversation.agentKey(),
+                        conversation.modelProviderKey(),
+                        conversation.modelName(),
                         conversation.createdAt(),
                         conversation.updatedAt()))
                 .toList();
@@ -41,6 +43,10 @@ public class ConversationService {
                         turn.content(),
                         turn.errorMessage(),
                         turn.traceId(),
+                        turn.agentKey(),
+                        turn.modelProviderKey(),
+                        turn.modelName(),
+                        turn.protocolType(),
                         turn.createdAt(),
                         turn.updatedAt()))
                 .toList();

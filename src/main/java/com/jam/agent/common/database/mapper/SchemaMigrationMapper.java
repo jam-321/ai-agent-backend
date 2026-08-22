@@ -1,7 +1,5 @@
 package com.jam.agent.common.database.mapper;
 
-import org.apache.ibatis.annotations.Param;
-
 public interface SchemaMigrationMapper {
 
     int countAdminColumn();
@@ -18,7 +16,23 @@ public interface SchemaMigrationMapper {
 
     void createModelProviderConfigTable();
 
-    void insertDefaultModelProvider();
+    void insertBuiltInModelProviders();
+
+    int countModelProviderCatalogColumn();
+
+    int countModelProviderEndpointColumn();
+
+    int countModelProviderLegacyPathColumn();
+
+    void renameModelProviderEndpointColumn();
+
+    void addModelProviderEndpointColumn();
+
+    void addModelProviderCatalogColumn();
+
+    void updateDefaultProviderCatalog();
+
+    void updateBuiltInProviderProtocols();
 
     void createAgentConfigTable();
 
@@ -33,4 +47,12 @@ public interface SchemaMigrationMapper {
     int countAgentConfigModelProviderColumn();
 
     void addAgentConfigModelColumns();
+
+    int countConversationModelProviderColumn();
+
+    void addConversationModelColumns();
+
+    int countConversationTurnModelColumn();
+
+    void addConversationTurnModelColumns();
 }
