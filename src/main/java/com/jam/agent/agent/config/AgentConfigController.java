@@ -1,6 +1,7 @@
 package com.jam.agent.agent.config;
 
 import com.jam.agent.agent.persistence.repository.AgentConfigRepository;
+import com.jam.agent.agent.dto.AgentConfigResponse;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,7 +19,9 @@ public class AgentConfigController {
     }
 
     @GetMapping
-    public List<AgentConfigSnapshot> list() {
-        return repository.findAll();
+    public List<AgentConfigResponse> list() {
+        return repository.findAll().stream()
+                .map(AgentConfigResponse::from)
+                .toList();
     }
 }

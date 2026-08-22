@@ -3,12 +3,11 @@ package com.jam.agent.agent.tool;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jam.agent.agent.event.Dispatcher;
 import com.jam.agent.agent.runtime.AgentExecutionContext;
-import java.util.LinkedHashMap;
+import com.jam.agent.agent.tool.registry.ToolRegistry;
 import java.util.Map;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.ToolCallback;
-import org.springframework.ai.tool.method.MethodToolCallbackProvider;
 import org.springframework.stereotype.Component;
 
 /** Single execution boundary for tool lookup, context injection, errors, and events. */
@@ -17,21 +16,17 @@ public class ToolExecutor {
 
     private static final int MAX_ERROR_MESSAGE_LENGTH = 500;
 
-    private final Map<String, ToolCallback> callbacks = new LinkedHashMap<>();
+    private final ToolRegistry registry;
     private final Dispatcher events;
     private final ObjectMapper objectMapper;
 
-    public ToolExecutor(BuiltinTools builtinTools, Dispatcher events, ObjectMapper objectMapper) {
+    public ToolExecutor(
+            ToolRegistry registry,
+            Dispatcher events,
+            ObjectMapper objectMapper) {
+        this.registry = registry;
         this.events = events;
         this.objectMapper = objectMapper;
-
-        ToolCallback[] builtins = MethodToolCallbackProvider.builder()
-                .toolObjects(builtinTools)
-                .build()
-                .getToolCallbacks();
-        for (ToolCallback callback : builtins) {
-            callbacks.put(callback.getToolDefinition().name(), callback);
-        }
     }
 
     public ToolResult execute(
@@ -63,11 +58,7 @@ public class ToolExecutor {
         if (!context.agentConfig().isToolEnabled(name)) {
             throw new IllegalArgumentException("当前 Agent 未启用工具：" + name);
         }
-        ToolCallback callback = callbacks.get(name);
-        if (callback == null) {
-            throw new IllegalArgumentException("未知工具：" + name);
-        }
-        return callback;
+        return registry.require(name);
     }
 
     private String normalizeArguments(String arguments) {
@@ -114,7 +105,7 @@ public class ToolExecutor {
     }
 
     public Map<String, ToolCallback> callbacks() {
-        return Map.copyOf(callbacks);
+        return registry.callbacks();
     }
 
     public record ToolResult(String id, String name, String responseData, boolean error) {

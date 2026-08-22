@@ -1,18 +1,18 @@
 package com.jam.agent.agent.loop;
 
 import com.jam.agent.agent.runtime.AgentExecutionContext;
+import com.jam.agent.agent.model.ModelRegistry;
+import com.jam.agent.agent.model.ModelRegistry.ResolvedModel;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
-import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.ai.tool.ToolCallback;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
@@ -31,30 +31,25 @@ public class ModelAdapter {
             需要查询历史工具完整数据时调用 query_conversation_node。不要编造工具结果。
             """;
 
-    private final ChatModel model;
-    private final boolean enabled;
+    private final ModelRegistry models;
 
-    public ModelAdapter(
-            ChatModel model,
-            @Value("${spring.ai.openai.api-key:}") String apiKey) {
-        this.model = model;
-        this.enabled = apiKey != null
-                && !apiKey.isBlank()
-                && !apiKey.contains("dummy");
+    public ModelAdapter(ModelRegistry models) {
+        this.models = models;
     }
 
     public ModelResult call(
             List<Message> messages,
             List<ToolCallback> tools,
             AgentExecutionContext context) {
-        if (!enabled) {
+        ResolvedModel selected = models.resolve(context.agentConfig().modelConfig());
+        if (!selected.enabled()) {
             return mockResponse(messages, context);
         }
 
         try {
-            ChatResponse response = model.call(new Prompt(
+            ChatResponse response = selected.model().call(new Prompt(
                     withSystemPrompt(messages, context.agentConfig().systemPrompt()),
-                    buildOptions(tools, context)));
+                    buildOptions(tools, context, selected)));
             return extractResult(response);
         } catch (RetryableModelException exception) {
             throw exception;
@@ -67,8 +62,11 @@ public class ModelAdapter {
 
     private ToolCallingChatOptions buildOptions(
             List<ToolCallback> tools,
-            AgentExecutionContext context) {
+            AgentExecutionContext context,
+            ResolvedModel selected) {
         return ToolCallingChatOptions.builder()
+                .model(selected.modelName())
+                .temperature(selected.temperature())
                 .toolCallbacks(tools)
                 .internalToolExecutionEnabled(false)
                 .toolContext(Map.of(
@@ -108,7 +106,7 @@ public class ModelAdapter {
             }
         }
         return new ModelResult(new AssistantMessage(
-                "[mock] 尚未配置 DEEPSEEK_API_KEY。你的问题是：" + query));
+                "[mock] 当前 Agent 未配置有效的模型 API Key。你的问题是：" + query));
     }
 
     private String safeMessage(RuntimeException exception) {

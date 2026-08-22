@@ -1,6 +1,5 @@
 package com.jam.agent.agent.loop;
 
-import com.jam.agent.agent.event.AgentTurnContext;
 import com.jam.agent.agent.event.Dispatcher;
 import com.jam.agent.agent.runtime.AgentExecutionContext;
 import com.jam.agent.agent.tool.ToolExecutor;
@@ -47,11 +46,12 @@ public class AgentLoop {
     }
 
     /** Runs model rounds until the model returns a final answer without tool calls. */
-    public String run(AgentExecutionContext context, int attemptNo, List<Message> history) {
-        List<Message> messages = new ArrayList<>(history);
-        messages.add(new UserMessage(context.currentQuery()));
-        AgentTurnContext turn = new AgentTurnContext(context, messages);
-        events.turnStart(turn);
+    public String run(
+            AgentExecutionContext context,
+            int attemptNo,
+            List<Message> turnMessages) {
+        // 每次 Attempt 使用独立副本，失败 Attempt 的工具消息不会污染下一次重试。
+        List<Message> messages = new ArrayList<>(turnMessages);
 
         List<ToolCallback> callbacks = tools.callbacks().entrySet().stream()
                 .filter(entry -> context.agentConfig().isToolEnabled(entry.getKey()))

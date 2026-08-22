@@ -9,6 +9,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 @MapperScan({
         "com.jam.agent.agent.persistence.mapper",
+        "com.jam.agent.agent.model.persistence.mapper",
         "com.jam.agent.auth.persistence.mapper",
         "com.jam.agent.common.database.mapper",
         "com.jam.agent.conversation.persistence.mapper",

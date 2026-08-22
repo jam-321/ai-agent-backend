@@ -1,5 +1,6 @@
 package com.jam.agent.agent.config;
 
+import com.jam.agent.agent.model.AgentModelConfig;
 import java.util.Set;
 
 /** Immutable agent recipe captured for one turn. */
@@ -10,7 +11,8 @@ public record AgentConfigSnapshot(
         Set<String> enabledTools,
         String magicParams,
         String executionType,
-        String executionKey) {
+        String executionKey,
+        AgentModelConfig modelConfig) {
 
     public AgentConfigSnapshot(
             String agentKey,
@@ -18,7 +20,19 @@ public record AgentConfigSnapshot(
             Set<String> enabledPlugins,
             Set<String> enabledTools,
             String magicParams) {
-        this(agentKey, systemPrompt, enabledPlugins, enabledTools, magicParams, "LOOP", null);
+        this(agentKey, systemPrompt, enabledPlugins, enabledTools, magicParams, "LOOP", null, null);
+    }
+
+    public AgentConfigSnapshot(
+            String agentKey,
+            String systemPrompt,
+            Set<String> enabledPlugins,
+            Set<String> enabledTools,
+            String magicParams,
+            String executionType,
+            String executionKey) {
+        this(agentKey, systemPrompt, enabledPlugins, enabledTools, magicParams,
+                executionType, executionKey, null);
     }
 
     public AgentConfigSnapshot {
@@ -31,6 +45,9 @@ public record AgentConfigSnapshot(
         executionKey = executionKey == null || executionKey.isBlank()
                 ? null
                 : executionKey.trim();
+        modelConfig = modelConfig == null
+                ? new AgentModelConfig(null, null, null, null, null, null, null)
+                : modelConfig;
     }
 
     public boolean isToolEnabled(String toolName) {
@@ -45,6 +62,7 @@ public record AgentConfigSnapshot(
                 null,
                 "{}",
                 "LOOP",
+                null,
                 null);
     }
 }

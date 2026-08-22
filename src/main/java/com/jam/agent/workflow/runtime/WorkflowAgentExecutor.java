@@ -2,7 +2,6 @@ package com.jam.agent.workflow.runtime;
 
 import com.jam.agent.agent.event.Dispatcher;
 import com.jam.agent.agent.loop.ModelAdapter.RetryableModelException;
-import com.jam.agent.agent.memory.ConversationContextManager;
 import com.jam.agent.agent.runtime.AgentExecutor;
 import com.jam.agent.agent.runtime.AgentExecutionContext;
 import com.jam.agent.agent.runtime.AgentRunException;
@@ -14,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.springframework.ai.chat.messages.Message;
 import org.springframework.stereotype.Component;
 
 /** Runs a registered workflow graph as an alternate Agent execution strategy. */
@@ -21,17 +21,14 @@ import org.springframework.stereotype.Component;
 public class WorkflowAgentExecutor implements AgentExecutor {
 
     private final WorkflowRegistry workflows;
-    private final ConversationContextManager memory;
     private final Dispatcher events;
     private final Map<String, WorkflowStepHandler> handlers;
 
     public WorkflowAgentExecutor(
             WorkflowRegistry workflows,
-            ConversationContextManager memory,
             Dispatcher events,
             List<WorkflowStepHandler> handlers) {
         this.workflows = workflows;
-        this.memory = memory;
         this.events = events;
         this.handlers = handlers.stream().collect(Collectors.toUnmodifiableMap(
                 handler -> handler.type().toUpperCase(),
@@ -44,7 +41,9 @@ public class WorkflowAgentExecutor implements AgentExecutor {
     }
 
     @Override
-    public AgentRunResult execute(AgentExecutionContext context) {
+    public AgentRunResult execute(
+            AgentExecutionContext context,
+            List<Message> turnMessages) {
         if (context.agentConfig().executionKey() == null) {
             throw new IllegalArgumentException("WORKFLOW Agent 未配置 executionKey。 ");
         }
@@ -55,7 +54,9 @@ public class WorkflowAgentExecutor implements AgentExecutor {
             context.checkDeadline();
             events.lifecycle(context, attemptNo, null, "workflow_attempt_start:" + definition.key());
             try {
-                return new AgentRunResult(attemptNo, runOnce(context, attemptNo, definition));
+                return new AgentRunResult(
+                        attemptNo,
+                        runOnce(context, attemptNo, definition, turnMessages));
             } catch (RetryableModelException exception) {
                 lastFailure = exception;
                 events.lifecycle(context, attemptNo, null, "workflow_attempt_retryable_error");
@@ -71,12 +72,9 @@ public class WorkflowAgentExecutor implements AgentExecutor {
     private String runOnce(
             AgentExecutionContext execution,
             int attemptNo,
-            WorkflowDefinition definition) {
-        List<org.springframework.ai.chat.messages.Message> history = memory.rebuild(
-                execution.userId(),
-                execution.conversationId(),
-                execution.turnId());
-        WorkflowContext context = new WorkflowContext(execution, attemptNo, history);
+            WorkflowDefinition definition,
+            List<Message> turnMessages) {
+        WorkflowContext context = new WorkflowContext(execution, attemptNo, turnMessages);
         String stepId = definition.startStep();
 
         for (int stepNo = 1; stepNo <= execution.maxWorkflowSteps(); stepNo++) {

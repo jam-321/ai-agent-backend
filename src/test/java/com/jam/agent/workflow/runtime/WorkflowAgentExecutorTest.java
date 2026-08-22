@@ -7,7 +7,6 @@ import static org.mockito.Mockito.when;
 
 import com.jam.agent.agent.config.AgentConfigSnapshot;
 import com.jam.agent.agent.event.Dispatcher;
-import com.jam.agent.agent.memory.ConversationContextManager;
 import com.jam.agent.agent.runtime.AgentExecutionContext;
 import com.jam.agent.agent.runtime.AgentRunResult;
 import com.jam.agent.workflow.definition.WorkflowDefinition;
@@ -24,7 +23,6 @@ class WorkflowAgentExecutorTest {
     @Test
     void runsStepsAndReturnsTerminalAnswer() {
         WorkflowRegistry registry = mock(WorkflowRegistry.class);
-        ConversationContextManager memory = mock(ConversationContextManager.class);
         Dispatcher events = mock(Dispatcher.class);
         WorkflowDefinition definition = new WorkflowDefinition(
                 "test",
@@ -32,7 +30,6 @@ class WorkflowAgentExecutorTest {
                 Map.of("answer", new WorkflowStep(
                         "answer", "ANSWER", null, null, Map.of("content", "done"))));
         when(registry.require("test")).thenReturn(definition);
-        when(memory.rebuild(1L, 2L, 1)).thenReturn(List.of());
 
         WorkflowStepHandler handler = new WorkflowStepHandler() {
             @Override
@@ -47,7 +44,6 @@ class WorkflowAgentExecutorTest {
         };
         WorkflowAgentExecutor executor = new WorkflowAgentExecutor(
                 registry,
-                memory,
                 events,
                 List.of(handler));
 
@@ -66,7 +62,7 @@ class WorkflowAgentExecutorTest {
                 4,
                 Instant.now().plusSeconds(30));
 
-        AgentRunResult result = executor.execute(context);
+        AgentRunResult result = executor.execute(context, List.of());
 
         assertEquals("done", result.answer());
         verify(events).workflowStepStart(context, 1, 1, "answer", "trace:workflow-step:1:answer", "工作流步骤开始：ANSWER");

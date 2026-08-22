@@ -14,6 +14,12 @@ public interface SchemaMigrationMapper {
 
     int countAgentConfigTable();
 
+    int countModelProviderConfigTable();
+
+    void createModelProviderConfigTable();
+
+    void insertDefaultModelProvider();
+
     void createAgentConfigTable();
 
     int countAgentConfigEnabledToolsColumn();
@@ -23,4 +29,8 @@ public interface SchemaMigrationMapper {
     int countAgentConfigExecutionTypeColumn();
 
     void addAgentConfigExecutionColumns();
+
+    int countAgentConfigModelProviderColumn();
+
+    void addAgentConfigModelColumns();
 }

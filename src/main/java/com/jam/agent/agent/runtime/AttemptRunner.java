@@ -3,7 +3,6 @@ package com.jam.agent.agent.runtime;
 import com.jam.agent.agent.event.Dispatcher;
 import com.jam.agent.agent.loop.AgentLoop;
 import com.jam.agent.agent.loop.ModelAdapter.RetryableModelException;
-import com.jam.agent.agent.memory.ConversationContextManager;
 import java.util.List;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.stereotype.Component;
@@ -18,15 +17,12 @@ import org.springframework.stereotype.Component;
 public class AttemptRunner implements AgentExecutor {
 
     private final AgentLoop loop;
-    private final ConversationContextManager contextManager;
     private final Dispatcher events;
 
     public AttemptRunner(
             AgentLoop loop,
-            ConversationContextManager contextManager,
             Dispatcher events) {
         this.loop = loop;
-        this.contextManager = contextManager;
         this.events = events;
     }
 
@@ -36,11 +32,9 @@ public class AttemptRunner implements AgentExecutor {
     }
 
     @Override
-    public AgentRunResult execute(AgentExecutionContext context) {
-        List<Message> history = contextManager.rebuild(
-                context.userId(),
-                context.conversationId(),
-                context.turnId());
+    public AgentRunResult execute(
+            AgentExecutionContext context,
+            List<Message> turnMessages) {
         RetryableModelException lastFailure = null;
 
         for (int attemptNo = 1; attemptNo <= context.maxAttempts(); attemptNo++) {
@@ -48,7 +42,9 @@ public class AttemptRunner implements AgentExecutor {
             events.lifecycle(context, attemptNo, null, "attempt_start");
 
             try {
-                return new AgentRunResult(attemptNo, loop.run(context, attemptNo, history));
+                return new AgentRunResult(
+                        attemptNo,
+                        loop.run(context, attemptNo, turnMessages));
             } catch (RetryableModelException exception) {
                 lastFailure = exception;
                 events.lifecycle(context, attemptNo, null, "attempt_retryable_error");

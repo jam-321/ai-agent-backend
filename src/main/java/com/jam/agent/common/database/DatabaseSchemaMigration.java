@@ -28,6 +28,11 @@ public class DatabaseSchemaMigration implements ApplicationRunner {
         if (mapper.countConversationAgentKeyColumn() == 0) {
             mapper.addConversationAgentKeyColumn();
         }
+        if (mapper.countModelProviderConfigTable() == 0) {
+            mapper.createModelProviderConfigTable();
+        }
+        // 先创建默认供应商，旧 agent_config 增加非空外键列时才能安全迁移。
+        mapper.insertDefaultModelProvider();
         if (mapper.countAgentConfigTable() == 0) {
             mapper.createAgentConfigTable();
         }
@@ -36,6 +41,9 @@ public class DatabaseSchemaMigration implements ApplicationRunner {
         }
         if (mapper.countAgentConfigExecutionTypeColumn() == 0) {
             mapper.addAgentConfigExecutionColumns();
+        }
+        if (mapper.countAgentConfigModelProviderColumn() == 0) {
+            mapper.addAgentConfigModelColumns();
         }
     }
 }

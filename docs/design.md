@@ -31,7 +31,7 @@ flowchart LR
 | --- | --- | --- | --- |
 | 前端 | Vue 3 + Vite | Vue 3.5 / Vite 6 | 组合式 API，页面少时先用原生，后续可加 Element Plus |
 | 后端 | Spring Boot + Spring AI | Boot 3.5.16 / Spring AI 1.1.7 | 官方 AI Starter，Java 17 |
-| LLM | DeepSeek（OpenAI 兼容） | deepseek-chat | 国内可直接访问，key 通过环境变量注入 |
+| LLM | DeepSeek（OpenAI 兼容） | deepseek-v4-flash | 国内可直接访问，key 通过环境变量或供应商表注入 |
 | 数据库 | MySQL | 8.4 LTS | 用户/会话/消息等业务数据（Docker） |
 | 缓存 | Redis | 7.x | 会话状态、限流、缓存（Docker） |
 | 部署 | 云服务器 + Nginx | - | 反向代理 + HTTPS 证书 |
@@ -66,18 +66,22 @@ flowchart LR
 
 - 模块内部按需要使用 `controller`、`service`、`dto`、`persistence`；`persistence` 下再放 Entity、Mapper、Repository。
 - Mapper 负责 MyBatis SQL 与数据库行映射，Repository 向业务代码提供有语义的查询和写入方法，并隔离 MyBatis Entity。
-- 当前聊天执行链为 `ChatController -> AgentRunService -> AgentRunWorker -> AttemptRunner -> AgentLoop -> ModelAdapter`，早期单轮直连模型的 `ChatService` 已删除。
-- AgentLoop 在固定节点发射 `turn_start`、`lifecycle`、`tool_call`、`tool_result`、`assistant`、`generate` 事件；`Dispatcher` 按 `EventRegistry` 调用插件。系统插件（如 `NodeTracePlugin`）恒执行，普通插件由当前 Agent 配方的 `enabled_plugins` 过滤。
+- LOOP 聊天执行链为 `ChatController -> AgentRunService -> AgentRunWorker -> AgentTurnPreparer -> AttemptRunner -> AgentLoop -> ModelAdapter`，早期单轮直连模型的 `ChatService` 已删除。
+- `AgentTurnPreparer` 在任何 Attempt 之前重建历史、追加当前用户消息并只发布一次 `turn_start`；LOOP 和 WORKFLOW 的每次 Attempt 都复制该消息基线，失败执行不会污染下一次重试。
+- 执行链在固定节点发射 `turn_start`、`lifecycle`、`tool_call`、`tool_result`、`assistant`、`generate` 事件；`Dispatcher` 按 `EventRegistry` 调用插件。系统插件（如 `NodeTracePlugin`）恒执行，普通插件由当前 Agent 配方的 `enabled_plugins` 过滤。
 - `agent_config` 保存 Agent 配方（`agent_key`、系统提示词、启用插件、启用工具和预留参数），`conversation.agent_key` 保存会话绑定。每次执行将配方捕获到不可变的 `AgentConfigSnapshot`，避免运行过程中配置漂移。
 - `agent_config.execution_type` 和 `execution_key` 选择一次执行使用的运行时：`LOOP` 走当前 AgentLoop，`WORKFLOW` 走注册的工作流定义。`AgentRunWorker` 通过 `AgentExecutorRegistry` 路由执行器，公共的会话、记忆、事件和终态落库逻辑不按执行类型复制。
 - 工作流实现位于独立的 `com.jam.agent.workflow` 模块，第一版使用代码注册的轻量有向流程，步骤支持 `TOOL`、`MODEL`、`CONDITION` 和 `ANSWER`。工作流步骤通过 `workflow_step_start/end` 事件写入 `WORKFLOW_STEP` 节点，并复用现有 `ToolExecutor`、`ModelAdapter`、`ConversationContextManager` 和 `TurnFinalizer`。
 - `agent_config.enabled_tools` 是工具白名单：旧数据中的 `NULL` 表示启用全部已注册工具，显式空数组表示不启用工具，非空数组只暴露并允许执行列出的工具。
+- Tool 定义统一放在 `agent.tool.definition` 子包并按领域拆类，所有定义类实现 `AgentToolProvider`；`ToolRegistry` 通过 Spring 注入实现列表并生成不可变 Callback 注册表，`ToolExecutor` 只处理白名单校验、上下文注入、异常包装和事件发布。
+- `model_provider_config` 保存模型供应商连接，当前支持 OpenAI 兼容协议，字段包含 `base_url`、`api_key`、状态和可选 `user_id`。系统默认供应商使用 `env:DEEPSEEK_API_KEY`，也允许数据库原值；`agent_config` 只保存 `model_provider_key`、模型名和 temperature，避免多个 Agent 重复保存供应商凭据。
+- `ModelRegistry` 按供应商 Base URL 与解析后的 API Key 缓存客户端，每次模型调用应用当前 Agent 的模型名和 temperature。Agent 配方在 Turn 提交时固定到 `AgentExecutionContext`，因此会话下一轮切换 Agent 可以切换供应商或模型，运行中的 Turn 不漂移。
+- `/api/agents` 只返回供应商和模型元信息，不返回 API Key。`model_provider_config.user_id` 为未来用户私有供应商配置预留；正式开放用户录入原值 API Key 前必须增加服务端加密存储、所有权校验和脱敏管理接口。
 - `agent_config.magic_params` 用于 Agent 级运行参数扩展，当前支持 `loop.maxAttempts`、`loop.maxToolRounds`、`loop.maxToolsPerRound`、`loop.maxRunDurationSeconds`、`loop.maxDegenerateRetries` 和 `loop.maxSameToolSignature`。YAML 中的值作为默认值和安全上限，数据库配置不能超过上限。
 - 工作流可通过 `magic_params.workflow.maxSteps` 覆盖步骤预算，但不能超过 YAML 的 `agent.workflow.max-steps` 全局上限。第一版不引入数据库工作流编辑器、BPMN 或中途断点恢复。
-- 插件事件使用独立快照，消息上下文使用 `AgentTurnContext`；这保留了并行工具执行能力，并为后续工具拦截、上下文压缩、模型路由等扩展留下事件槽位。
+- 插件事件使用独立快照，消息上下文使用 `AgentTurnContext`；这保留了并行工具执行能力，并为后续工具拦截、上下文压缩等扩展留下事件槽位。
 - 未来 RAG、Skill 作为独立功能模块；Milvus、Redis、模型供应商等技术组件放在所属模块内部，不与业务模块平级。
-- Spring AI 接入 OpenAI 兼容协议：`spring.ai.openai.base-url=https://api.deepseek.com`，模型 `deepseek-chat`
-- API Key 通过环境变量 `DEEPSEEK_API_KEY` 注入，不写死在代码/配置里；未配置时返回 mock 回复，方便联调。
+- Spring AI 默认 Bean 仍由 YAML 提供兜底连接；正常 Agent 执行优先使用数据库供应商与模型配置，API Key 无效时返回 mock 回复，方便联调。
 
 ## 6. 前端设计（Vue 3 + Vite）
 

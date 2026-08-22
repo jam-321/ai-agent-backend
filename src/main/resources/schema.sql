@@ -25,6 +25,24 @@ CREATE TABLE IF NOT EXISTS `conversation` (
         FOREIGN KEY (`user_id`) REFERENCES `app_user` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `model_provider_config` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `user_id` BIGINT DEFAULT NULL,
+    `provider_key` VARCHAR(64) NOT NULL,
+    `provider_name` VARCHAR(128) NOT NULL,
+    `protocol_type` VARCHAR(32) NOT NULL DEFAULT 'OPENAI_COMPATIBLE',
+    `base_url` VARCHAR(500) NOT NULL,
+    `api_key` VARCHAR(1000) NOT NULL,
+    `status` TINYINT NOT NULL DEFAULT 1,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_model_provider_key` (`provider_key`),
+    KEY `idx_model_provider_user` (`user_id`, `status`, `id`),
+    CONSTRAINT `fk_model_provider_user`
+        FOREIGN KEY (`user_id`) REFERENCES `app_user` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `agent_config` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
     `agent_key` VARCHAR(32) NOT NULL,
@@ -34,10 +52,15 @@ CREATE TABLE IF NOT EXISTS `agent_config` (
     `enabled_plugins` JSON,
     `enabled_tools` JSON DEFAULT NULL,
     `magic_params` JSON,
+    `model_provider_key` VARCHAR(64) NOT NULL DEFAULT 'deepseek',
+    `model_name` VARCHAR(128) NOT NULL DEFAULT 'deepseek-v4-flash',
+    `model_temperature` DECIMAL(4,3) NOT NULL DEFAULT 0.700,
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_agent_config_key` (`agent_key`)
+    UNIQUE KEY `uk_agent_config_key` (`agent_key`),
+    CONSTRAINT `fk_agent_config_model_provider`
+        FOREIGN KEY (`model_provider_key`) REFERENCES `model_provider_config` (`provider_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `conversation_turn` (

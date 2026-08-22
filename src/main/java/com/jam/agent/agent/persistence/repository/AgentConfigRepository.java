@@ -3,6 +3,8 @@ package com.jam.agent.agent.persistence.repository;
 import com.jam.agent.agent.config.AgentConfigSnapshot;
 import com.jam.agent.agent.persistence.entity.AgentConfigEntity;
 import com.jam.agent.agent.persistence.mapper.AgentConfigMapper;
+import com.jam.agent.agent.model.AgentModelConfig;
+import com.jam.agent.agent.model.persistence.repository.ModelProviderConfigRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.HashSet;
@@ -15,10 +17,15 @@ public class AgentConfigRepository {
 
     private final AgentConfigMapper mapper;
     private final ObjectMapper objectMapper;
+    private final ModelProviderConfigRepository modelProviders;
 
-    public AgentConfigRepository(AgentConfigMapper mapper, ObjectMapper objectMapper) {
+    public AgentConfigRepository(
+            AgentConfigMapper mapper,
+            ObjectMapper objectMapper,
+            ModelProviderConfigRepository modelProviders) {
         this.mapper = mapper;
         this.objectMapper = objectMapper;
+        this.modelProviders = modelProviders;
     }
 
     public Optional<AgentConfigSnapshot> findByKey(String agentKey) {
@@ -50,6 +57,19 @@ public class AgentConfigRepository {
             String magicParams,
             String executionType,
             String executionKey) {
+        insert(agentKey, systemPrompt, enabledPlugins, enabledTools, magicParams,
+                executionType, executionKey, null);
+    }
+
+    public void insert(
+            String agentKey,
+            String systemPrompt,
+            String enabledPlugins,
+            String enabledTools,
+            String magicParams,
+            String executionType,
+            String executionKey,
+            AgentModelConfig modelConfig) {
         AgentConfigEntity entity = new AgentConfigEntity();
         entity.setAgentKey(agentKey);
         entity.setExecutionType(executionType);
@@ -58,10 +78,18 @@ public class AgentConfigRepository {
         entity.setEnabledPlugins(enabledPlugins);
         entity.setEnabledTools(enabledTools);
         entity.setMagicParams(magicParams);
+        if (modelConfig != null) {
+            entity.setModelProviderKey(modelConfig.providerKey());
+            entity.setModelName(modelConfig.modelName());
+            entity.setModelTemperature(modelConfig.temperature());
+        }
         mapper.insert(entity);
     }
 
     private AgentConfigSnapshot toSnapshot(AgentConfigEntity entity) {
+        ModelProviderConfigRepository.ProviderRecord provider = modelProviders
+                .findEnabledByKey(entity.getModelProviderKey())
+                .orElse(null);
         return new AgentConfigSnapshot(
                 entity.getAgentKey(),
                 entity.getSystemPrompt(),
@@ -69,7 +97,15 @@ public class AgentConfigRepository {
                 parseTools(entity.getEnabledTools()),
                 entity.getMagicParams(),
                 entity.getExecutionType(),
-                entity.getExecutionKey());
+                entity.getExecutionKey(),
+                new AgentModelConfig(
+                        entity.getModelProviderKey(),
+                        provider == null ? null : provider.providerName(),
+                        provider == null ? null : provider.protocolType(),
+                        provider == null ? null : provider.baseUrl(),
+                        provider == null ? null : provider.apiKey(),
+                        entity.getModelName(),
+                        entity.getModelTemperature()));
     }
 
     private java.util.Set<String> parsePlugins(String json) {
