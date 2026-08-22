@@ -10,6 +10,8 @@ public interface ModelProviderConfigMapper extends BaseMapper<ModelProviderConfi
     ModelProviderConfigEntity selectEnabledByProviderKey(
             @Param("providerKey") String providerKey);
 
+    ModelProviderConfigEntity selectByProviderKey(@Param("providerKey") String providerKey);
+
     ModelProviderConfigEntity selectAvailableByProviderKey(
             @Param("userId") long userId,
             @Param("providerKey") String providerKey);

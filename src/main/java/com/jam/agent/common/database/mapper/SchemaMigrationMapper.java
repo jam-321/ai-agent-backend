@@ -4,6 +4,10 @@ public interface SchemaMigrationMapper {
 
     int countAdminColumn();
 
+    int countAdminAuditTable();
+
+    void createAdminAuditTable();
+
     void addAdminColumn();
 
     int countConversationAgentKeyColumn();

@@ -40,6 +40,26 @@ public class AgentConfigRepository {
         return mapper.selectCount(null);
     }
 
+    public Optional<AgentConfigEntity> findEntityByKey(String agentKey) {
+        return Optional.ofNullable(mapper.selectByAgentKey(agentKey));
+    }
+
+    public void save(AgentConfigEntity entity) {
+        if (entity.getId() == null) {
+            mapper.insert(entity);
+        } else {
+            mapper.updateById(entity);
+        }
+    }
+
+    public void deleteByKey(String agentKey) {
+        AgentConfigEntity entity = mapper.selectByAgentKey(agentKey);
+        if (entity == null) {
+            throw new IllegalArgumentException("Agent 不存在。");
+        }
+        mapper.deleteById(entity.getId());
+    }
+
     public void insert(
             String agentKey,
             String systemPrompt,

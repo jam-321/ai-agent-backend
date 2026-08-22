@@ -26,6 +26,9 @@ public class DatabaseSchemaMigration implements ApplicationRunner {
         if (mapper.countAdminColumn() == 0) {
             mapper.addAdminColumn();
         }
+        if (mapper.countAdminAuditTable() == 0) {
+            mapper.createAdminAuditTable();
+        }
         if (mapper.countConversationAgentKeyColumn() == 0) {
             mapper.addConversationAgentKeyColumn();
         }

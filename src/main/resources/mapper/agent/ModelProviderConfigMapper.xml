@@ -28,6 +28,14 @@
           AND status = 1
     </select>
 
+    <select id="selectByProviderKey" resultMap="ProviderResult">
+        SELECT id, user_id, provider_key, provider_name, protocol_type,
+               base_url, endpoint_path, api_key, models,
+               status, created_at, updated_at
+        FROM model_provider_config
+        WHERE provider_key = #{providerKey}
+    </select>
+
     <select id="selectAvailableByProviderKey" resultMap="ProviderResult">
         SELECT id, user_id, provider_key, provider_name, protocol_type,
                base_url, endpoint_path, api_key, models,

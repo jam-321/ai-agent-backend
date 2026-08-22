@@ -10,6 +10,7 @@ import com.jam.agent.agent.model.persistence.mapper.ModelProviderConfigMapper;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -69,6 +70,88 @@ public class ModelProviderConfigRepository {
                 .map(this::toRecord);
     }
 
+    public List<ProviderRecord> findAllAdmin() {
+        return mapper.selectList(null).stream().map(this::toRecord).toList();
+    }
+
+    public Optional<ProviderRecord> findByKey(String providerKey) {
+        return Optional.ofNullable(mapper.selectByProviderKey(providerKey)).map(this::toRecord);
+    }
+
+    public void create(
+            String providerKey,
+            String providerName,
+            String protocolType,
+            String baseUrl,
+            String endpointPath,
+            String apiKey,
+            List<ModelDescriptor> models,
+            boolean enabled) {
+        if (providerKey == null || providerKey.isBlank() || providerName == null || providerName.isBlank()
+                || baseUrl == null || baseUrl.isBlank() || apiKey == null || apiKey.isBlank()) {
+            throw new IllegalArgumentException("供应商标识、名称、Base URL 和 API Key 不能为空。");
+        }
+        if (!protocols.supports(protocolType)) {
+            throw new IllegalArgumentException("当前后端不支持该协议。");
+        }
+        ModelProviderConfigEntity entity = new ModelProviderConfigEntity();
+        entity.setProviderKey(providerKey.trim());
+        entity.setProviderName(providerName.trim());
+        entity.setProtocolType(protocolType);
+        entity.setBaseUrl(baseUrl.trim());
+        entity.setEndpointPath(endpointPath);
+        entity.setApiKey(apiKey.trim());
+        entity.setModels(writeModels(models));
+        entity.setStatus(enabled ? 1 : 0);
+        mapper.insert(entity);
+    }
+
+    public void update(
+            String providerKey,
+            String providerName,
+            String protocolType,
+            String baseUrl,
+            String endpointPath,
+            String apiKey,
+            List<ModelDescriptor> models,
+            Boolean enabled) {
+        ModelProviderConfigEntity entity = mapper.selectByProviderKey(providerKey);
+        if (entity == null) {
+            throw new IllegalArgumentException("供应商不存在。");
+        }
+        if (!protocols.supports(protocolType)) {
+            throw new IllegalArgumentException("当前后端不支持该协议。");
+        }
+        entity.setProviderName(providerName.trim());
+        entity.setProtocolType(protocolType);
+        entity.setBaseUrl(baseUrl.trim());
+        entity.setEndpointPath(endpointPath);
+        if (apiKey != null && !apiKey.isBlank()) {
+            entity.setApiKey(apiKey.trim());
+        }
+        entity.setModels(writeModels(models));
+        if (enabled != null) {
+            entity.setStatus(enabled ? 1 : 0);
+        }
+        mapper.updateById(entity);
+    }
+
+    private String writeModels(List<ModelDescriptor> models) {
+        try {
+            ArrayNode array = objectMapper.createArrayNode();
+            if (models != null) {
+                for (ModelDescriptor model : models) {
+                    array.add(objectMapper.createObjectNode()
+                            .put("modelName", model.modelName())
+                            .put("displayName", model.displayName()));
+                }
+            }
+            return objectMapper.writeValueAsString(array);
+        } catch (Exception exception) {
+            throw new IllegalArgumentException("模型目录格式无效。", exception);
+        }
+    }
+
     private ProviderRecord toRecord(ModelProviderConfigEntity entity) {
         return new ProviderRecord(
                 entity.getId(),
@@ -79,7 +162,8 @@ public class ModelProviderConfigRepository {
                 entity.getBaseUrl(),
                 entity.getEndpointPath(),
                 entity.getApiKey(),
-                parseModels(entity.getModels()));
+                parseModels(entity.getModels()),
+                Integer.valueOf(1).equals(entity.getStatus()));
     }
 
     private List<ModelDescriptor> parseModels(String json) {
@@ -120,7 +204,8 @@ public class ModelProviderConfigRepository {
             String baseUrl,
             String endpointPath,
             String apiKey,
-            List<ModelDescriptor> models) {
+            List<ModelDescriptor> models,
+            boolean enabled) {
 
         public AgentModelConfig toModelConfig(String modelName, Double temperature) {
             return new AgentModelConfig(

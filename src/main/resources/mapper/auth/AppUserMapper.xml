@@ -20,4 +20,19 @@
         WHERE username = #{username}
     </select>
 
+    <select id="selectAdminPage" resultMap="AppUserResult">
+        SELECT id, username, password_hash, status, is_admin, created_at, updated_at
+        FROM app_user
+        ORDER BY id DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="countAllUsers" resultType="long">
+        SELECT COUNT(*) FROM app_user
+    </select>
+
+    <select id="countAdmins" resultType="long">
+        SELECT COUNT(*) FROM app_user WHERE is_admin = 1 AND status = 1
+    </select>
+
 </mapper>

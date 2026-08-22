@@ -136,7 +136,8 @@
 
     <select id="selectTurns" resultType="map">
         SELECT id, turn_id, type, content, is_hidden, error_message,
-               trace_id, created_at, updated_at
+               trace_id, agent_key, model_provider_key, model_name, protocol_type,
+               created_at, updated_at
         FROM conversation_turn
         WHERE conversation_id = #{conversationId}
         ORDER BY turn_id, id

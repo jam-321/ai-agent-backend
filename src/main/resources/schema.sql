@@ -114,3 +114,22 @@ CREATE TABLE IF NOT EXISTS `conversation_node` (
     CONSTRAINT `fk_conversation_node_conversation`
         FOREIGN KEY (`conversation_id`) REFERENCES `conversation` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `admin_audit_log` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `user_id` BIGINT NOT NULL,
+    `username` VARCHAR(30) NOT NULL,
+    `action` VARCHAR(64) NOT NULL,
+    `target_type` VARCHAR(64) NOT NULL,
+    `target_id` VARCHAR(128) DEFAULT NULL,
+    `request_method` VARCHAR(16) DEFAULT NULL,
+    `request_uri` VARCHAR(500) DEFAULT NULL,
+    `result` VARCHAR(16) NOT NULL DEFAULT 'SUCCESS',
+    `detail` TEXT,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_admin_audit_created` (`created_at`, `id`),
+    KEY `idx_admin_audit_user` (`user_id`, `created_at`),
+    CONSTRAINT `fk_admin_audit_user`
+        FOREIGN KEY (`user_id`) REFERENCES `app_user` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

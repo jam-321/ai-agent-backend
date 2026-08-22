@@ -10,6 +10,10 @@ public record AdminTurnResponse(
         boolean hidden,
         String errorMessage,
         String traceId,
+        String agentKey,
+        String modelProviderKey,
+        String modelName,
+        String protocolType,
         LocalDateTime createdAt,
         LocalDateTime updatedAt) {
 }

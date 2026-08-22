@@ -67,6 +67,10 @@ public class AdminMonitorRepository {
                         asBoolean(row, "is_hidden"),
                         asString(row, "error_message"),
                         asString(row, "trace_id"),
+                        asString(row, "agent_key"),
+                        asString(row, "model_provider_key"),
+                        asString(row, "model_name"),
+                        asString(row, "protocol_type"),
                         asLocalDateTime(row, "created_at"),
                         asLocalDateTime(row, "updated_at")))
                 .toList();
