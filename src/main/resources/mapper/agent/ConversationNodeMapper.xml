@@ -18,6 +18,7 @@
         <result property="type" column="type"/>
         <result property="status" column="status"/>
         <result property="content" column="content"/>
+        <result property="attachmentId" column="attachment_id"/>
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
     </resultMap>
@@ -25,7 +26,7 @@
     <sql id="NodeColumns">
         n.id, n.conversation_id, n.turn_id, n.trace_id, n.attempt_no,
         n.round_no, n.call_index, n.node_id, n.node_name, n.aggr_key,
-        n.type, n.status, n.content, n.created_at, n.updated_at
+        n.type, n.status, n.content, n.attachment_id, n.created_at, n.updated_at
     </sql>
 
     <select id="selectByTurn" resultMap="NodeResult">

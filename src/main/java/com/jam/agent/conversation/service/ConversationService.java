@@ -5,6 +5,7 @@ import com.jam.agent.conversation.dto.ConversationResponse;
 import com.jam.agent.conversation.dto.TurnResponse;
 import com.jam.agent.conversation.persistence.repository.ConversationRepository;
 import com.jam.agent.conversation.persistence.repository.ConversationTurnRepository;
+import com.jam.agent.agent.persistence.repository.ConversationTurnAttachmentRepository;
 import java.util.List;
 import org.springframework.stereotype.Service;
 
@@ -13,12 +14,15 @@ public class ConversationService {
 
     private final ConversationRepository conversations;
     private final ConversationTurnRepository turns;
+    private final ConversationTurnAttachmentRepository attachments;
 
     public ConversationService(
             ConversationRepository conversations,
-            ConversationTurnRepository turns) {
+            ConversationTurnRepository turns,
+            ConversationTurnAttachmentRepository attachments) {
         this.conversations = conversations;
         this.turns = turns;
+        this.attachments = attachments;
     }
 
     public List<ConversationResponse> list(long userId) {
@@ -47,6 +51,7 @@ public class ConversationService {
                         turn.modelProviderKey(),
                         turn.modelName(),
                         turn.protocolType(),
+                        attachments.findAssetIds(userId, conversationId, turn.turnId()),
                         turn.createdAt(),
                         turn.updatedAt()))
                 .toList();

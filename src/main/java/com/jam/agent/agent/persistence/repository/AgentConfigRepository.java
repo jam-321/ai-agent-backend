@@ -110,23 +110,21 @@ public class AgentConfigRepository {
         ModelProviderConfigRepository.ProviderRecord provider = modelProviders
                 .findEnabledByKey(entity.getModelProviderKey())
                 .orElse(null);
+        AgentModelConfig modelConfig = provider == null
+                ? new AgentModelConfig(
+                        entity.getModelProviderKey(), null, null, null, null, null,
+                        entity.getModelName(), entity.getModelTemperature())
+                : provider.toModelConfig(entity.getModelName(), entity.getModelTemperature());
         return new AgentConfigSnapshot(
                 entity.getAgentKey(),
                 entity.getSystemPrompt(),
                 parsePlugins(entity.getEnabledPlugins()),
                 parseTools(entity.getEnabledTools()),
                 entity.getMagicParams(),
+                entity.getImageHistoryMode(),
                 entity.getExecutionType(),
                 entity.getExecutionKey(),
-                new AgentModelConfig(
-                        entity.getModelProviderKey(),
-                        provider == null ? null : provider.providerName(),
-                        provider == null ? null : provider.protocolType(),
-                        provider == null ? null : provider.baseUrl(),
-                        provider == null ? null : provider.endpointPath(),
-                        provider == null ? null : provider.apiKey(),
-                        entity.getModelName(),
-                        entity.getModelTemperature()));
+                modelConfig);
     }
 
     private java.util.Set<String> parsePlugins(String json) {

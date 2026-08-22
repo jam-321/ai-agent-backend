@@ -59,4 +59,24 @@ public interface SchemaMigrationMapper {
     int countConversationTurnModelColumn();
 
     void addConversationTurnModelColumns();
+
+    int countAgentConfigImageHistoryModeColumn();
+
+    void addAgentConfigImageHistoryModeColumn();
+
+    void updateDefaultAgentImageHistoryMode();
+
+    int countConversationNodeAttachmentColumn();
+
+    void addConversationNodeAttachmentColumn();
+
+    int countMediaAssetTable();
+
+    void createMediaAssetTable();
+
+    int countTurnAttachmentTable();
+
+    void createTurnAttachmentTable();
+
+    void updateBuiltInAgentTools();
 }

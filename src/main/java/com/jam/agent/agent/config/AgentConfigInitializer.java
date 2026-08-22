@@ -12,11 +12,11 @@ import org.springframework.stereotype.Component;
 public class AgentConfigInitializer implements ApplicationRunner {
 
     private static final String ALL_BUILTIN_TOOLS =
-            "[\"current_time\",\"calculate\",\"query_conversation_node\"]";
+            "[\"current_time\",\"calculate\",\"query_conversation_node\",\"query_image_summary\"]";
 
     private static final String GENERAL_PROMPT = """
             你是一个友好、专业的中文 AI Agent。
-            需要准确时间时调用 current_time，需要精确算术时调用 calculate，需要查询历史工具完整数据时调用 query_conversation_node。不要编造工具结果。
+            需要准确时间时调用 current_time，需要精确算术时调用 calculate，需要查询历史工具完整数据时调用 query_conversation_node；当用户询问历史图片时调用 query_image_summary。不要编造工具结果。
             """;
 
     private final AgentConfigRepository repository;
@@ -29,6 +29,10 @@ public class AgentConfigInitializer implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         if (repository.findByKey("general").isEmpty()) {
             repository.insert("general", GENERAL_PROMPT, "[]", ALL_BUILTIN_TOOLS, "{}");
+            repository.findEntityByKey("general").ifPresent(entity -> {
+                entity.setImageHistoryMode("FULL_IMAGE_HISTORY");
+                repository.save(entity);
+            });
         }
         if (repository.findByKey("with_time").isEmpty()) {
             repository.insert("with_time", GENERAL_PROMPT, "[\"time_inject\"]", ALL_BUILTIN_TOOLS, "{}");

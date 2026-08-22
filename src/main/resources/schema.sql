@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS `agent_config` (
     `enabled_plugins` JSON,
     `enabled_tools` JSON DEFAULT NULL,
     `magic_params` JSON,
+    `image_history_mode` VARCHAR(32) NOT NULL DEFAULT 'SUMMARY_TOOL',
     `model_provider_key` VARCHAR(64) NOT NULL DEFAULT 'deepseek',
     `model_name` VARCHAR(128) NOT NULL DEFAULT 'deepseek-v4-flash',
     `model_temperature` DECIMAL(4,3) NOT NULL DEFAULT 0.700,
@@ -105,6 +106,7 @@ CREATE TABLE IF NOT EXISTS `conversation_node` (
     `type` VARCHAR(32) NOT NULL,
     `status` VARCHAR(16) NOT NULL,
     `content` LONGTEXT,
+    `attachment_id` BIGINT DEFAULT NULL,
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
@@ -113,6 +115,44 @@ CREATE TABLE IF NOT EXISTS `conversation_node` (
     KEY `idx_node_trace_round` (`trace_id`, `attempt_no`, `round_no`, `id`),
     CONSTRAINT `fk_conversation_node_conversation`
         FOREIGN KEY (`conversation_id`) REFERENCES `conversation` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `media_asset` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `owner_id` BIGINT NOT NULL,
+    `asset_type` VARCHAR(16) NOT NULL DEFAULT 'IMAGE',
+    `storage_key` VARCHAR(500) NOT NULL,
+    `original_filename` VARCHAR(255) DEFAULT NULL,
+    `content_type` VARCHAR(128) NOT NULL,
+    `file_size` BIGINT NOT NULL,
+    `sha256` VARCHAR(64) NOT NULL,
+    `width` INT DEFAULT NULL,
+    `height` INT DEFAULT NULL,
+    `status` VARCHAR(16) NOT NULL DEFAULT 'PENDING',
+    `summary` TEXT DEFAULT NULL,
+    `summary_model` VARCHAR(128) DEFAULT NULL,
+    `summary_created_at` DATETIME DEFAULT NULL,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `deleted_at` DATETIME DEFAULT NULL,
+    PRIMARY KEY (`id`),
+    KEY `idx_media_asset_owner` (`owner_id`, `status`, `id`),
+    UNIQUE KEY `uk_media_asset_sha256` (`owner_id`, `sha256`),
+    CONSTRAINT `fk_media_asset_owner` FOREIGN KEY (`owner_id`) REFERENCES `app_user` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `conversation_turn_attachment` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `conversation_id` BIGINT NOT NULL,
+    `turn_id` INT NOT NULL,
+    `asset_id` BIGINT NOT NULL,
+    `sort_order` INT NOT NULL DEFAULT 0,
+    `detail` VARCHAR(16) DEFAULT NULL,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_turn_attachment` (`conversation_id`, `turn_id`, `asset_id`),
+    KEY `idx_turn_attachment_asset` (`asset_id`),
+    CONSTRAINT `fk_turn_attachment_conversation` FOREIGN KEY (`conversation_id`) REFERENCES `conversation` (`id`),
+    CONSTRAINT `fk_turn_attachment_asset` FOREIGN KEY (`asset_id`) REFERENCES `media_asset` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `admin_audit_log` (

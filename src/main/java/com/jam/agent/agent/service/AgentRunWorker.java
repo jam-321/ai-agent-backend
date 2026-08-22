@@ -11,6 +11,7 @@ import java.util.List;
 import org.springframework.ai.chat.messages.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /** Owns the complete asynchronous lifetime of one submitted turn. */
@@ -23,16 +24,29 @@ public class AgentRunWorker {
     private final AgentTurnPreparer turnPreparer;
     private final TurnFinalizer finalizer;
     private final ConversationLock lock;
+    private final ImageSummaryService imageSummaries;
 
+    @Autowired
+    public AgentRunWorker(
+            AgentExecutorRegistry executors,
+            AgentTurnPreparer turnPreparer,
+            TurnFinalizer finalizer,
+            ConversationLock lock,
+            ImageSummaryService imageSummaries) {
+        this.executors = executors;
+        this.turnPreparer = turnPreparer;
+        this.finalizer = finalizer;
+        this.lock = lock;
+        this.imageSummaries = imageSummaries;
+    }
+
+    /** 兼容不关心图片摘要的旧测试构造方式。 */
     public AgentRunWorker(
             AgentExecutorRegistry executors,
             AgentTurnPreparer turnPreparer,
             TurnFinalizer finalizer,
             ConversationLock lock) {
-        this.executors = executors;
-        this.turnPreparer = turnPreparer;
-        this.finalizer = finalizer;
-        this.lock = lock;
+        this(executors, turnPreparer, finalizer, lock, null);
     }
 
     public void run(AgentExecutionContext context) {
@@ -44,6 +58,9 @@ public class AgentRunWorker {
             AgentRunResult result = executor.execute(context, turnMessages);
             attemptNo = result.attemptNo();
             finalizer.complete(context, attemptNo, result.answer());
+            if (imageSummaries != null) {
+                imageSummaries.submit(context);
+            }
         } catch (Throwable exception) {
             log.error("Agent run failed traceId={}", context.traceId(), exception);
             finalizer.fail(context, attemptNo, exception);

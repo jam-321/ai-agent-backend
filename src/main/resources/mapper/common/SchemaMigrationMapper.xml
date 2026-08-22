@@ -104,7 +104,7 @@
                 JSON_ARRAY(
                     JSON_OBJECT('modelName', 'deepseek-v4-flash', 'displayName', 'DeepSeek V4 Flash'),
                     JSON_OBJECT('modelName', 'deepseek-v4-pro', 'displayName', 'DeepSeek V4 Pro'),
-                    JSON_OBJECT('modelName', 'deepseek-v4-flash-vision-exp', 'displayName', 'DeepSeek V4 Flash Vision')),
+                    JSON_OBJECT('modelName', 'deepseek-v4-flash-vision-exp', 'displayName', 'DeepSeek V4 Flash Vision', 'supportsImageInput', true, 'supportsTools', true)),
                 1
             ),
             (
@@ -175,7 +175,7 @@
             models = JSON_ARRAY(
                 JSON_OBJECT('modelName', 'deepseek-v4-flash', 'displayName', 'DeepSeek V4 Flash'),
                 JSON_OBJECT('modelName', 'deepseek-v4-pro', 'displayName', 'DeepSeek V4 Pro'),
-                JSON_OBJECT('modelName', 'deepseek-v4-flash-vision-exp', 'displayName', 'DeepSeek V4 Flash Vision'))
+                JSON_OBJECT('modelName', 'deepseek-v4-flash-vision-exp', 'displayName', 'DeepSeek V4 Flash Vision', 'supportsImageInput', true, 'supportsTools', true))
         WHERE provider_key = 'deepseek'
           AND models IS NULL
     </update>
@@ -289,6 +289,94 @@
             CONSTRAINT fk_agent_config_model_provider
                 FOREIGN KEY (model_provider_key) REFERENCES model_provider_config (provider_key)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    </update>
+
+    <select id="countAgentConfigImageHistoryModeColumn" resultType="int">
+        SELECT COUNT(*) FROM information_schema.columns
+        WHERE table_schema = DATABASE() AND table_name = 'agent_config'
+          AND column_name = 'image_history_mode'
+    </select>
+
+    <update id="addAgentConfigImageHistoryModeColumn">
+        ALTER TABLE agent_config
+        ADD COLUMN image_history_mode VARCHAR(32) NOT NULL DEFAULT 'SUMMARY_TOOL' AFTER magic_params
+    </update>
+
+    <update id="updateDefaultAgentImageHistoryMode">
+        UPDATE agent_config
+        SET image_history_mode = 'FULL_IMAGE_HISTORY'
+        WHERE agent_key = 'general'
+          AND image_history_mode = 'SUMMARY_TOOL'
+    </update>
+
+    <select id="countConversationNodeAttachmentColumn" resultType="int">
+        SELECT COUNT(*) FROM information_schema.columns
+        WHERE table_schema = DATABASE() AND table_name = 'conversation_node'
+          AND column_name = 'attachment_id'
+    </select>
+
+    <update id="addConversationNodeAttachmentColumn">
+        ALTER TABLE conversation_node
+        ADD COLUMN attachment_id BIGINT DEFAULT NULL AFTER content
+    </update>
+
+    <select id="countMediaAssetTable" resultType="int">
+        SELECT COUNT(*) FROM information_schema.tables
+        WHERE table_schema = DATABASE() AND table_name = 'media_asset'
+    </select>
+
+    <update id="createMediaAssetTable">
+        CREATE TABLE media_asset (
+            id BIGINT NOT NULL AUTO_INCREMENT,
+            owner_id BIGINT NOT NULL,
+            asset_type VARCHAR(16) NOT NULL DEFAULT 'IMAGE',
+            storage_key VARCHAR(500) NOT NULL,
+            original_filename VARCHAR(255),
+            content_type VARCHAR(128) NOT NULL,
+            file_size BIGINT NOT NULL,
+            sha256 VARCHAR(64) NOT NULL,
+            width INT DEFAULT NULL,
+            height INT DEFAULT NULL,
+            status VARCHAR(16) NOT NULL DEFAULT 'PENDING',
+            summary TEXT DEFAULT NULL,
+            summary_model VARCHAR(128) DEFAULT NULL,
+            summary_created_at DATETIME DEFAULT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            deleted_at DATETIME DEFAULT NULL,
+            PRIMARY KEY (id), KEY idx_media_asset_owner (owner_id, status, id),
+            UNIQUE KEY uk_media_asset_sha256 (owner_id, sha256),
+            CONSTRAINT fk_media_asset_owner FOREIGN KEY (owner_id) REFERENCES app_user (id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    </update>
+
+    <select id="countTurnAttachmentTable" resultType="int">
+        SELECT COUNT(*) FROM information_schema.tables
+        WHERE table_schema = DATABASE() AND table_name = 'conversation_turn_attachment'
+    </select>
+
+    <update id="createTurnAttachmentTable">
+        CREATE TABLE conversation_turn_attachment (
+            id BIGINT NOT NULL AUTO_INCREMENT,
+            conversation_id BIGINT NOT NULL,
+            turn_id INT NOT NULL,
+            asset_id BIGINT NOT NULL,
+            sort_order INT NOT NULL DEFAULT 0,
+            detail VARCHAR(16) DEFAULT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id), UNIQUE KEY uk_turn_attachment (conversation_id, turn_id, asset_id),
+            KEY idx_turn_attachment_asset (asset_id),
+            CONSTRAINT fk_turn_attachment_conversation FOREIGN KEY (conversation_id) REFERENCES conversation (id),
+            CONSTRAINT fk_turn_attachment_asset FOREIGN KEY (asset_id) REFERENCES media_asset (id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    </update>
+
+    <update id="updateBuiltInAgentTools">
+        UPDATE agent_config
+        SET enabled_tools = JSON_ARRAY_APPEND(
+                COALESCE(enabled_tools, JSON_ARRAY()),
+                '$', 'query_image_summary')
+        WHERE agent_key IN ('general', 'with_time', 'time_workflow')
+          AND JSON_SEARCH(COALESCE(enabled_tools, JSON_ARRAY()), 'one', 'query_image_summary') IS NULL
     </update>
 
 </mapper>

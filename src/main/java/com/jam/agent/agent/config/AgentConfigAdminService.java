@@ -66,6 +66,7 @@ public class AgentConfigAdminService {
         entity.setEnabledPlugins(request.enabledPlugins());
         entity.setEnabledTools(request.enabledTools());
         entity.setMagicParams(request.magicParams());
+        entity.setImageHistoryMode(defaultValue(request.imageHistoryMode(), "SUMMARY_TOOL"));
         entity.setModelProviderKey(request.modelProviderKey());
         entity.setModelName(request.modelName());
         entity.setModelTemperature(request.modelTemperature() == null ? 0.7 : request.modelTemperature());

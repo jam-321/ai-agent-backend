@@ -7,5 +7,7 @@ public record ModelOptionResponse(
         String modelName,
         String displayName,
         boolean available,
-        String unavailableReason) {
+        String unavailableReason,
+        boolean supportsImageInput,
+        boolean supportsTools) {
 }

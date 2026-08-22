@@ -18,6 +18,7 @@ import com.jam.agent.workflow.runtime.WorkflowConfig;
 import java.util.Optional;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import org.slf4j.Logger;
@@ -25,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 接收一次聊天请求，落库用户消息后交给 Agent 线程池异步执行。
@@ -49,6 +51,7 @@ public class AgentRunService {
     private final AgentConfigRepository agentConfigs;
     private final ModelProviderConfigRepository modelProviders;
     private final ObjectMapper objectMapper;
+    private final ImageAttachmentService images;
 
     public AgentRunService(
             ConversationRepository conversations,
@@ -61,7 +64,8 @@ public class AgentRunService {
             @Qualifier("agentRunExecutor") Executor executor,
             AgentConfigRepository agentConfigs,
             ModelProviderConfigRepository modelProviders,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            ImageAttachmentService images) {
         this.conversations = conversations;
         this.turns = turns;
         this.lock = lock;
@@ -73,9 +77,14 @@ public class AgentRunService {
         this.agentConfigs = agentConfigs;
         this.modelProviders = modelProviders;
         this.objectMapper = objectMapper;
+        this.images = images;
     }
 
     public ChatResponse submit(long userId, ChatRequest request) {
+        return submit(userId, request, List.of());
+    }
+
+    public ChatResponse submit(long userId, ChatRequest request, List<MultipartFile> imageFiles) {
         String query = validateAndNormalizeQuery(request);
         String requestedAgentKey = normalizeAgentKey(request.agentKey());
         if (requestedAgentKey != null && agentConfigs.findByKey(requestedAgentKey).isEmpty()) {
@@ -105,6 +114,10 @@ public class AgentRunService {
                 existingConversation,
                 agentConfig,
                 requestedAgentKey != null);
+        if (imageFiles != null && imageFiles.stream().anyMatch(file -> file != null && !file.isEmpty())
+                && !modelConfig.supportsImageInput()) {
+            throw new IllegalArgumentException("MODEL_IMAGE_UNSUPPORTED：当前模型不支持图片输入。");
+        }
         long conversationId = existingConversation == null
                 ? conversations.insert(
                         userId,
@@ -121,19 +134,22 @@ public class AgentRunService {
 
         boolean workerOwnsLock = false;
         try {
+            List<Long> attachmentIds = images.store(userId, imageFiles);
             int turnId = createUserTurn(
                     userId,
                     conversationId,
                     traceId,
                     query,
                     effectiveAgentKey,
-                    modelConfig);
+                    modelConfig,
+                    attachmentIds);
             AgentExecutionContext context = buildContext(
                     userId,
                     conversationId,
                     turnId,
                     traceId,
                     query,
+                    attachmentIds,
                     agentConfig,
                     modelConfig);
 
@@ -194,7 +210,8 @@ public class AgentRunService {
             String traceId,
             String query,
             String agentKey,
-            AgentModelConfig modelConfig) {
+            AgentModelConfig modelConfig,
+            List<Long> attachmentIds) {
         return Objects.requireNonNull(transactions.execute(status -> {
             conversations.lockForUpdate(userId, conversationId);
             conversations.updateExecutionSelection(
@@ -214,6 +231,7 @@ public class AgentRunService {
                     agentKey,
                     modelConfig,
                     null);
+            images.bind(conversationId, turnId, attachmentIds);
             conversations.updateTitleIfEmpty(userId, conversationId, title(query));
             return turnId;
         }));
@@ -225,6 +243,7 @@ public class AgentRunService {
             int turnId,
             String traceId,
             String query,
+            List<Long> attachmentIds,
             AgentConfigSnapshot agentConfig,
             AgentModelConfig modelConfig) {
         AgentLoopConfig loop = AgentLoopConfig.resolve(
@@ -241,6 +260,7 @@ public class AgentRunService {
                 turnId,
                 traceId,
                 query,
+                attachmentIds,
                 agentConfig,
                 modelConfig,
                 loop.maxAttempts(),

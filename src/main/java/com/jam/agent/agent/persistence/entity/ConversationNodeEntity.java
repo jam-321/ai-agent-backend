@@ -22,6 +22,7 @@ public class ConversationNodeEntity {
     private String type;
     private String status;
     private String content;
+    private Long attachmentId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -128,6 +129,9 @@ public class ConversationNodeEntity {
     public void setContent(String content) {
         this.content = content;
     }
+
+    public Long getAttachmentId() { return attachmentId; }
+    public void setAttachmentId(Long attachmentId) { this.attachmentId = attachmentId; }
 
     public LocalDateTime getCreatedAt() {
         return createdAt;

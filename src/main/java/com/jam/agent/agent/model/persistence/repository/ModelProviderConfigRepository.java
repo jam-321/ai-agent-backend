@@ -143,7 +143,9 @@ public class ModelProviderConfigRepository {
                 for (ModelDescriptor model : models) {
                     array.add(objectMapper.createObjectNode()
                             .put("modelName", model.modelName())
-                            .put("displayName", model.displayName()));
+                            .put("displayName", model.displayName())
+                            .put("supportsImageInput", model.supportsImageInput())
+                            .put("supportsTools", model.supportsTools()));
                 }
             }
             return objectMapper.writeValueAsString(array);
@@ -187,7 +189,11 @@ public class ModelProviderConfigRepository {
                 String displayName = item.isTextual()
                         ? name
                         : item.path("displayName").asText(name);
-                models.add(new ModelDescriptor(name, displayName));
+                models.add(new ModelDescriptor(
+                        name,
+                        displayName,
+                        item.path("supportsImageInput").asBoolean(name.toLowerCase().contains("vision")),
+                        item.path("supportsTools").asBoolean(true)));
             }
             return List.copyOf(models);
         } catch (Exception ignored) {
@@ -208,6 +214,10 @@ public class ModelProviderConfigRepository {
             boolean enabled) {
 
         public AgentModelConfig toModelConfig(String modelName, Double temperature) {
+            ModelDescriptor descriptor = models.stream()
+                    .filter(model -> model.modelName().equals(modelName))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("当前供应商不支持该模型。"));
             return new AgentModelConfig(
                     providerKey,
                     providerName,
@@ -216,7 +226,9 @@ public class ModelProviderConfigRepository {
                     endpointPath,
                     apiKey,
                     modelName,
-                    temperature);
+                    temperature,
+                    descriptor.supportsImageInput(),
+                    descriptor.supportsTools());
         }
 
         @Override

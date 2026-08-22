@@ -28,6 +28,24 @@ public class ConversationNodeRepository {
             String type,
             String status,
             String content) {
+        return insert(conversationId, turnId, traceId, attemptNo, roundNo, callIndex,
+                nodeId, nodeName, aggrKey, type, status, content, null);
+    }
+
+    public long insert(
+            long conversationId,
+            int turnId,
+            String traceId,
+            int attemptNo,
+            Integer roundNo,
+            Integer callIndex,
+            String nodeId,
+            String nodeName,
+            String aggrKey,
+            String type,
+            String status,
+            String content,
+            Long attachmentId) {
         ConversationNodeEntity node = new ConversationNodeEntity();
         node.setConversationId(conversationId);
         node.setTurnId(turnId);
@@ -41,6 +59,7 @@ public class ConversationNodeRepository {
         node.setType(type);
         node.setStatus(status);
         node.setContent(content);
+        node.setAttachmentId(attachmentId);
         mapper.insert(node);
 
         // MyBatis-Plus writes the auto-increment key back to the entity for this exact INSERT.
@@ -89,6 +108,7 @@ public class ConversationNodeRepository {
                 node.getType(),
                 node.getStatus(),
                 node.getContent(),
+                node.getAttachmentId(),
                 node.getCreatedAt(),
                 node.getUpdatedAt());
     }
@@ -107,6 +127,7 @@ public class ConversationNodeRepository {
             String type,
             String status,
             String content,
+            Long attachmentId,
             LocalDateTime createdAt,
             LocalDateTime updatedAt) {
     }

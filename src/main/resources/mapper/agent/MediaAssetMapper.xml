@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jam.agent.agent.persistence.mapper.MediaAssetMapper">
+    <select id="selectOwned" resultType="com.jam.agent.agent.persistence.entity.MediaAssetEntity">
+        SELECT a.* FROM media_asset a
+        WHERE a.id = #{assetId} AND a.owner_id = #{userId} AND a.status &lt;&gt; 'DELETED'
+    </select>
+    <select id="selectByIdForUpdate" resultType="com.jam.agent.agent.persistence.entity.MediaAssetEntity">
+        SELECT * FROM media_asset WHERE id = #{assetId} FOR UPDATE
+    </select>
+</mapper>

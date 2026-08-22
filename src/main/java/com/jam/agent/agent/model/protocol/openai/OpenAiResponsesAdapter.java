@@ -11,6 +11,7 @@ import com.jam.agent.agent.model.protocol.ModelProtocol;
 import com.jam.agent.agent.model.protocol.ModelProtocolAdapter;
 import com.jam.agent.agent.runtime.AgentExecutionContext;
 import java.time.Duration;
+import java.util.Base64;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -21,6 +22,7 @@ import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.content.Media;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -96,7 +98,7 @@ public class OpenAiResponsesAdapter implements ModelProtocolAdapter {
             if (message instanceof SystemMessage system) {
                 appendInstruction(instructions, system.getText());
             } else if (message instanceof UserMessage user) {
-                addMessage(input, "user", user.getText());
+                addUser(input, user);
             } else if (message instanceof AssistantMessage assistant) {
                 addAssistant(input, assistant);
             } else if (message instanceof ToolResponseMessage toolResponse) {
@@ -195,6 +197,31 @@ public class OpenAiResponsesAdapter implements ModelProtocolAdapter {
             item.put("name", call.name());
             item.put("arguments", call.arguments());
         }
+    }
+
+    private void addUser(ArrayNode input, UserMessage user) {
+        if (user.getMedia() == null || user.getMedia().isEmpty()) {
+            addMessage(input, "user", user.getText());
+            return;
+        }
+        ObjectNode item = input.addObject();
+        item.put("role", "user");
+        ArrayNode content = item.putArray("content");
+        if (user.getText() != null && !user.getText().isBlank()) {
+            content.addObject().put("type", "input_text").put("text", user.getText());
+        }
+        for (Media media : user.getMedia()) {
+            ObjectNode image = content.addObject();
+            image.put("type", "input_image");
+            image.put("image_url", dataUrl(media));
+        }
+    }
+
+    private String dataUrl(Media media) {
+        if (!(media.getData() instanceof byte[] bytes)) {
+            throw new IllegalArgumentException("Responses 图片必须使用二进制媒体数据。");
+        }
+        return "data:" + media.getMimeType() + ";base64," + Base64.getEncoder().encodeToString(bytes);
     }
 
     private void addToolResponses(

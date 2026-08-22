@@ -67,5 +67,19 @@ public class DatabaseSchemaMigration implements ApplicationRunner {
         if (mapper.countConversationTurnModelColumn() == 0) {
             mapper.addConversationTurnModelColumns();
         }
+        if (mapper.countAgentConfigImageHistoryModeColumn() == 0) {
+            mapper.addAgentConfigImageHistoryModeColumn();
+            mapper.updateDefaultAgentImageHistoryMode();
+        }
+        if (mapper.countConversationNodeAttachmentColumn() == 0) {
+            mapper.addConversationNodeAttachmentColumn();
+        }
+        if (mapper.countMediaAssetTable() == 0) {
+            mapper.createMediaAssetTable();
+        }
+        if (mapper.countTurnAttachmentTable() == 0) {
+            mapper.createTurnAttachmentTable();
+        }
+        mapper.updateBuiltInAgentTools();
     }
 }

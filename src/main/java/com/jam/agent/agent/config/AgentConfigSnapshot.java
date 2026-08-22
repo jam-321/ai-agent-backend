@@ -10,6 +10,7 @@ public record AgentConfigSnapshot(
         Set<String> enabledPlugins,
         Set<String> enabledTools,
         String magicParams,
+        String imageHistoryMode,
         String executionType,
         String executionKey,
         AgentModelConfig modelConfig) {
@@ -20,7 +21,8 @@ public record AgentConfigSnapshot(
             Set<String> enabledPlugins,
             Set<String> enabledTools,
             String magicParams) {
-        this(agentKey, systemPrompt, enabledPlugins, enabledTools, magicParams, "LOOP", null, null);
+        this(agentKey, systemPrompt, enabledPlugins, enabledTools, magicParams,
+                "SUMMARY_TOOL", "LOOP", null, null);
     }
 
     public AgentConfigSnapshot(
@@ -32,7 +34,22 @@ public record AgentConfigSnapshot(
             String executionType,
             String executionKey) {
         this(agentKey, systemPrompt, enabledPlugins, enabledTools, magicParams,
+                "SUMMARY_TOOL",
                 executionType, executionKey, null);
+    }
+
+    /** 保留旧版测试和调用方使用的九字段快照构造方式。 */
+    public AgentConfigSnapshot(
+            String agentKey,
+            String systemPrompt,
+            Set<String> enabledPlugins,
+            Set<String> enabledTools,
+            String magicParams,
+            String executionType,
+            String executionKey,
+            AgentModelConfig modelConfig) {
+        this(agentKey, systemPrompt, enabledPlugins, enabledTools, magicParams,
+                "SUMMARY_TOOL", executionType, executionKey, modelConfig);
     }
 
     public AgentConfigSnapshot {
@@ -45,6 +62,9 @@ public record AgentConfigSnapshot(
         executionKey = executionKey == null || executionKey.isBlank()
                 ? null
                 : executionKey.trim();
+        imageHistoryMode = imageHistoryMode == null || imageHistoryMode.isBlank()
+                ? "SUMMARY_TOOL"
+                : imageHistoryMode.trim().toUpperCase();
         modelConfig = modelConfig == null
                 ? new AgentModelConfig(null, null, null, null, null, null, null, null)
                 : modelConfig;
@@ -61,6 +81,7 @@ public record AgentConfigSnapshot(
                 Set.of(),
                 null,
                 "{}",
+                "SUMMARY_TOOL",
                 "LOOP",
                 null,
                 null);

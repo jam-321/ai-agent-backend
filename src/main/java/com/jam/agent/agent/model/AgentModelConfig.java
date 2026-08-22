@@ -9,7 +9,22 @@ public record AgentModelConfig(
         String endpointPath,
         String apiKey,
         String modelName,
-        Double temperature) {
+        Double temperature,
+        boolean supportsImageInput,
+        boolean supportsTools) {
+
+    public AgentModelConfig(
+            String providerKey,
+            String providerName,
+            String protocolType,
+            String baseUrl,
+            String endpointPath,
+            String apiKey,
+            String modelName,
+            Double temperature) {
+        this(providerKey, providerName, protocolType, baseUrl, endpointPath, apiKey,
+                modelName, temperature, false, true);
+    }
 
     public AgentModelConfig {
         providerKey = normalize(providerKey);

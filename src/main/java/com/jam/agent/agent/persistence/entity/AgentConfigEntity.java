@@ -17,6 +17,7 @@ public class AgentConfigEntity {
     private String enabledPlugins;
     private String enabledTools;
     private String magicParams;
+    private String imageHistoryMode;
     private String modelProviderKey;
     private String modelName;
     private Double modelTemperature;
@@ -39,6 +40,8 @@ public class AgentConfigEntity {
     public void setEnabledTools(String enabledTools) { this.enabledTools = enabledTools; }
     public String getMagicParams() { return magicParams; }
     public void setMagicParams(String magicParams) { this.magicParams = magicParams; }
+    public String getImageHistoryMode() { return imageHistoryMode; }
+    public void setImageHistoryMode(String imageHistoryMode) { this.imageHistoryMode = imageHistoryMode; }
     public String getModelProviderKey() { return modelProviderKey; }
     public void setModelProviderKey(String modelProviderKey) { this.modelProviderKey = modelProviderKey; }
     public String getModelName() { return modelName; }

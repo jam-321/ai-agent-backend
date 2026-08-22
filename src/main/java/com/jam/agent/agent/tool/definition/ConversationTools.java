@@ -2,6 +2,8 @@ package com.jam.agent.agent.tool.definition;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jam.agent.agent.persistence.repository.ConversationNodeRepository;
+import com.jam.agent.agent.persistence.repository.ConversationTurnAttachmentRepository;
+import com.jam.agent.agent.persistence.repository.MediaAssetRepository;
 import com.jam.agent.agent.runtime.AgentExecutionContext;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -16,12 +18,45 @@ public class ConversationTools implements AgentToolProvider {
 
     private final ConversationNodeRepository nodes;
     private final ObjectMapper objectMapper;
+    private final ConversationTurnAttachmentRepository attachments;
+    private final MediaAssetRepository assets;
 
     public ConversationTools(
             ConversationNodeRepository nodes,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            ConversationTurnAttachmentRepository attachments,
+            MediaAssetRepository assets) {
         this.nodes = nodes;
         this.objectMapper = objectMapper;
+        this.attachments = attachments;
+        this.assets = assets;
+    }
+
+    @Tool(
+            name = "query_image_summary",
+            description = "查询当前会话历史图片的摘要。当用户询问之前发送的截图、图片细节且上下文没有图片内容时调用。")
+    public String queryImageSummary(
+            @ToolParam(description = "要查询的历史轮次；不传则查询全部历史图片") Integer targetTurnId,
+            ToolContext toolContext) throws Exception {
+        AgentExecutionContext context = requireExecutionContext(toolContext);
+        if (targetTurnId != null && (targetTurnId < 1 || targetTurnId >= context.turnId())) {
+            throw new IllegalArgumentException("只能查询更早轮次的图片摘要。");
+        }
+        List<ConversationTurnAttachmentRepository.AttachmentRecord> rows = attachments.findHistory(
+                context.userId(), context.conversationId(), targetTurnId == null ? context.turnId() : targetTurnId + 1);
+        return objectMapper.writeValueAsString(rows.stream()
+                .filter(row -> targetTurnId == null || row.turnId() == targetTurnId)
+                .map(row -> assets.findOwned(context.userId(), row.assetId())
+                        .map(asset -> {
+                            Map<String, Object> value = new LinkedHashMap<>();
+                            value.put("turnId", row.turnId());
+                            value.put("attachmentId", row.assetId());
+                            value.put("status", asset.getSummary() == null ? "PROCESSING" : "SUCCESS");
+                            value.put("summary", asset.getSummary());
+                            return value;
+                        }).orElse(null))
+                .filter(java.util.Objects::nonNull)
+                .toList());
     }
 
     @Tool(

@@ -3,6 +3,8 @@ package com.jam.agent.agent.memory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jam.agent.agent.config.AgentProperties;
 import com.jam.agent.agent.persistence.repository.ConversationNodeRepository;
+import com.jam.agent.agent.persistence.repository.ConversationTurnAttachmentRepository;
+import com.jam.agent.agent.service.ImageAttachmentService;
 import com.jam.agent.conversation.persistence.repository.ConversationTurnRepository;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -24,19 +26,27 @@ public class ConversationContextManager {
     private final ConversationNodeRepository nodes;
     private final AgentProperties properties;
     private final ObjectMapper objectMapper;
+    private final ImageAttachmentService images;
 
     public ConversationContextManager(
             ConversationTurnRepository turns,
             ConversationNodeRepository nodes,
             AgentProperties properties,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            ImageAttachmentService images) {
         this.turns = turns;
         this.nodes = nodes;
         this.properties = properties;
         this.objectMapper = objectMapper;
+        this.images = images;
     }
 
-    public List<Message> rebuild(long userId, long conversationId, int currentTurnId) {
+    public List<Message> rebuild(
+            long userId,
+            long conversationId,
+            int currentTurnId,
+            String imageHistoryMode,
+            boolean supportsImageInput) {
         List<ConversationTurnRepository.TurnRecord> records = turns.findCompletedBefore(
                 userId,
                 conversationId,
@@ -46,11 +56,22 @@ public class ConversationContextManager {
         Map<Integer, List<ConversationTurnRepository.TurnRecord>> turnsById = groupTurns(records);
         Map<Integer, List<ConversationNodeRepository.NodeRecord>> toolsByTurn = groupTools(
                 nodes.findHistoryTools(userId, conversationId, currentTurnId));
+        Map<Integer, List<Long>> imagesByTurn = images.findHistory(userId, conversationId, currentTurnId).stream()
+                .collect(Collectors.groupingBy(
+                        ConversationTurnAttachmentRepository.AttachmentRecord::turnId,
+                        LinkedHashMap::new,
+                        Collectors.mapping(ConversationTurnAttachmentRepository.AttachmentRecord::assetId, Collectors.toList())));
         List<Integer> selectedTurnIds = selectTurnsWithinBudget(turnsById, toolsByTurn);
 
         List<Message> messages = new ArrayList<>();
         for (Integer turnId : selectedTurnIds) {
-            appendCompletedTurn(messages, turnsById.get(turnId), toolsByTurn.getOrDefault(turnId, List.of()));
+            appendCompletedTurn(
+                    messages,
+                    turnsById.get(turnId),
+                    toolsByTurn.getOrDefault(turnId, List.of()),
+                    userId,
+                    imagesByTurn.getOrDefault(turnId, List.of()),
+                    "FULL_IMAGE_HISTORY".equalsIgnoreCase(imageHistoryMode) && supportsImageInput);
         }
         return messages;
     }
@@ -112,7 +133,10 @@ public class ConversationContextManager {
     private void appendCompletedTurn(
             List<Message> messages,
             List<ConversationTurnRepository.TurnRecord> turnRecords,
-            List<ConversationNodeRepository.NodeRecord> toolRecords) {
+            List<ConversationNodeRepository.NodeRecord> toolRecords,
+            long userId,
+            List<Long> attachmentIds,
+            boolean includeImages) {
         ConversationTurnRepository.TurnRecord user = turnRecords.stream()
                 .filter(record -> record.type().equals("user"))
                 .findFirst()
@@ -127,7 +151,14 @@ public class ConversationContextManager {
             return;
         }
 
-        messages.add(new UserMessage(user.content()));
+        if (includeImages && !attachmentIds.isEmpty()) {
+            messages.add(UserMessage.builder()
+                    .text(user.content())
+                    .media(attachmentIds.stream().map(id -> images.toMedia(userId, id)).toList())
+                    .build());
+        } else {
+            messages.add(new UserMessage(user.content()));
+        }
         appendToolMessages(messages, toolRecords);
         messages.add(new AssistantMessage(assistant.content()));
     }

@@ -8,6 +8,7 @@ public record AgentConfigAdminRequest(
         String enabledPlugins,
         String enabledTools,
         String magicParams,
+        String imageHistoryMode,
         String modelProviderKey,
         String modelName,
         Double modelTemperature) {

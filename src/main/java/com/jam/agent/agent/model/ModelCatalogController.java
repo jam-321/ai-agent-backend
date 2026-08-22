@@ -37,7 +37,9 @@ public class ModelCatalogController {
                             model.modelName(),
                             model.displayName(),
                             available,
-                            available ? null : "当前后端尚未支持 " + provider.protocolType() + " 协议");
+                            available ? null : "当前后端尚未支持 " + provider.protocolType() + " 协议",
+                            model.supportsImageInput(),
+                            model.supportsTools());
                 }))
                 .toList();
     }
