@@ -52,6 +52,9 @@ public class DatabaseSchemaMigration implements ApplicationRunner {
         if (mapper.countAgentConfigTable() == 0) {
             mapper.createAgentConfigTable();
         }
+        if (mapper.countAgentConfigAdminOnlyColumn() == 0) {
+            mapper.addAgentConfigAdminOnlyColumn();
+        }
         if (mapper.countAgentConfigEnabledToolsColumn() == 0) {
             mapper.addAgentConfigEnabledToolsColumn();
         }
@@ -81,5 +84,6 @@ public class DatabaseSchemaMigration implements ApplicationRunner {
             mapper.createTurnAttachmentTable();
         }
         mapper.updateBuiltInAgentTools();
+        mapper.removeUserSessionDetailTool();
     }
 }

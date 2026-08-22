@@ -134,6 +134,20 @@ public class ImageAttachmentService {
         }
     }
 
+    public MediaAssetEntity require(long assetId) {
+        return assets.find(assetId)
+                .orElseThrow(() -> new IllegalArgumentException("图片不存在。"));
+    }
+
+    public byte[] read(long assetId) {
+        MediaAssetEntity asset = require(assetId);
+        try (InputStream stream = minio.getObject(GetObjectArgs.builder().bucket(bucket).object(asset.getStorageKey()).build())) {
+            return stream.readAllBytes();
+        } catch (Exception exception) {
+            throw new IllegalStateException("读取图片失败。", exception);
+        }
+    }
+
     public MediaAssetEntity requireOwned(long userId, long assetId) {
         return assets.findOwned(userId, assetId)
                 .orElseThrow(() -> new IllegalArgumentException("图片不存在或无权访问。"));

@@ -41,8 +41,8 @@ public class AgentConfigAdminService {
     }
 
     public void delete(String agentKey) {
-        if ("general".equals(agentKey)) {
-            throw new IllegalArgumentException("不能删除 general Agent。");
+        if ("general".equals(agentKey) || "system_admin".equals(agentKey)) {
+            throw new IllegalArgumentException("不能删除系统内置 Agent。");
         }
         agents.deleteByKey(agentKey);
     }
@@ -61,6 +61,7 @@ public class AgentConfigAdminService {
         providers.findEnabledByKey(request.modelProviderKey())
                 .orElseThrow(() -> new IllegalArgumentException("模型供应商不存在或未启用。"));
         entity.setExecutionType(defaultValue(request.executionType(), "LOOP"));
+        entity.setAdminOnly("system_admin".equals(entity.getAgentKey()) || request.adminOnly());
         entity.setExecutionKey(request.executionKey());
         entity.setSystemPrompt(request.systemPrompt());
         entity.setEnabledPlugins(request.enabledPlugins());

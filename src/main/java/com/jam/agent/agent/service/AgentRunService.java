@@ -10,6 +10,7 @@ import com.jam.agent.agent.dto.ChatRequest;
 import com.jam.agent.agent.dto.ChatResponse;
 import com.jam.agent.conversation.persistence.repository.ConversationRepository;
 import com.jam.agent.conversation.persistence.repository.ConversationTurnRepository;
+import com.jam.agent.auth.persistence.repository.UserRepository;
 import com.jam.agent.agent.persistence.repository.AgentConfigRepository;
 import com.jam.agent.agent.model.AgentModelConfig;
 import com.jam.agent.agent.model.persistence.repository.ModelProviderConfigRepository;
@@ -52,6 +53,7 @@ public class AgentRunService {
     private final ModelProviderConfigRepository modelProviders;
     private final ObjectMapper objectMapper;
     private final ImageAttachmentService images;
+    private final UserRepository users;
 
     public AgentRunService(
             ConversationRepository conversations,
@@ -65,7 +67,8 @@ public class AgentRunService {
             AgentConfigRepository agentConfigs,
             ModelProviderConfigRepository modelProviders,
             ObjectMapper objectMapper,
-            ImageAttachmentService images) {
+            ImageAttachmentService images,
+            UserRepository users) {
         this.conversations = conversations;
         this.turns = turns;
         this.lock = lock;
@@ -78,6 +81,7 @@ public class AgentRunService {
         this.modelProviders = modelProviders;
         this.objectMapper = objectMapper;
         this.images = images;
+        this.users = users;
     }
 
     public ChatResponse submit(long userId, ChatRequest request) {
@@ -107,6 +111,7 @@ public class AgentRunService {
                     return agentConfigs.findByKey("general")
                             .orElseGet(AgentConfigSnapshot::defaultConfig);
                 });
+        ensureAgentAccess(userId, agentConfig);
         String effectiveAgentKey = agentConfig.agentKey();
         AgentModelConfig modelConfig = resolveModelConfig(
                 userId,
@@ -285,6 +290,18 @@ public class AgentRunService {
         return agentKey == null || agentKey.isBlank() ? null : agentKey.trim();
     }
 
+    private void ensureAgentAccess(long userId, AgentConfigSnapshot agentConfig) {
+        if (!agentConfig.adminOnly()) {
+            return;
+        }
+        boolean admin = users.findById(userId)
+                .map(UserRepository.UserRecord::admin)
+                .orElse(false);
+        if (!admin) {
+            throw new AgentAccessDeniedException();
+        }
+    }
+
     private String normalizeModelValue(String value) {
         return value == null || value.isBlank() ? null : value.trim();
     }
@@ -307,6 +324,9 @@ public class AgentRunService {
     }
 
     public static class NotFoundException extends RuntimeException {
+    }
+
+    public static class AgentAccessDeniedException extends RuntimeException {
     }
 
 }

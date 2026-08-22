@@ -64,6 +64,19 @@
           AND table_name = 'agent_config'
     </select>
 
+    <select id="countAgentConfigAdminOnlyColumn" resultType="int">
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = 'agent_config'
+          AND column_name = 'admin_only'
+    </select>
+
+    <update id="addAgentConfigAdminOnlyColumn">
+        ALTER TABLE agent_config
+        ADD COLUMN admin_only TINYINT NOT NULL DEFAULT 0 AFTER agent_key
+    </update>
+
     <select id="countModelProviderConfigTable" resultType="int">
         SELECT COUNT(*)
         FROM information_schema.tables
@@ -273,6 +286,7 @@
         CREATE TABLE agent_config (
             id BIGINT NOT NULL AUTO_INCREMENT,
             agent_key VARCHAR(32) NOT NULL,
+            admin_only TINYINT NOT NULL DEFAULT 0,
             execution_type VARCHAR(32) NOT NULL DEFAULT 'LOOP',
             execution_key VARCHAR(64) DEFAULT NULL,
             system_prompt TEXT,
@@ -377,6 +391,16 @@
                 '$', 'query_image_summary')
         WHERE agent_key IN ('general', 'with_time', 'time_workflow')
           AND JSON_SEARCH(COALESCE(enabled_tools, JSON_ARRAY()), 'one', 'query_image_summary') IS NULL
+    </update>
+
+    <update id="removeUserSessionDetailTool">
+        UPDATE agent_config
+        SET enabled_tools = JSON_REMOVE(
+                enabled_tools,
+                JSON_UNQUOTE(JSON_SEARCH(enabled_tools, 'one', 'query_session_detail')))
+        WHERE agent_key IN ('general', 'with_time', 'time_workflow')
+          AND enabled_tools IS NOT NULL
+          AND JSON_SEARCH(enabled_tools, 'one', 'query_session_detail') IS NOT NULL
     </update>
 
 </mapper>

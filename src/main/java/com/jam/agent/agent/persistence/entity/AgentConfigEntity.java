@@ -11,6 +11,7 @@ public class AgentConfigEntity {
     @TableId(type = IdType.AUTO)
     private Long id;
     private String agentKey;
+    private Boolean adminOnly;
     private String executionType;
     private String executionKey;
     private String systemPrompt;
@@ -28,6 +29,8 @@ public class AgentConfigEntity {
     public void setId(Long id) { this.id = id; }
     public String getAgentKey() { return agentKey; }
     public void setAgentKey(String agentKey) { this.agentKey = agentKey; }
+    public Boolean getAdminOnly() { return adminOnly; }
+    public void setAdminOnly(Boolean adminOnly) { this.adminOnly = adminOnly; }
     public String getExecutionType() { return executionType; }
     public void setExecutionType(String executionType) { this.executionType = executionType; }
     public String getExecutionKey() { return executionKey; }

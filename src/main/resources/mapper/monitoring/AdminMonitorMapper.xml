@@ -134,6 +134,17 @@
           AND c.is_deleted = 0
     </select>
 
+    <select id="selectConversationIdByTrace" resultType="long">
+        SELECT conversation_id
+        FROM conversation_turn
+        WHERE trace_id = #{traceId}
+        UNION ALL
+        SELECT conversation_id
+        FROM conversation_node
+        WHERE trace_id = #{traceId}
+        LIMIT 1
+    </select>
+
     <select id="selectTurns" resultType="map">
         SELECT id, turn_id, type, content, is_hidden, error_message,
                trace_id, agent_key, model_provider_key, model_name, protocol_type,

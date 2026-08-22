@@ -57,6 +57,10 @@ public class AdminMonitorRepository {
                 .map(this::toConversationSummary);
     }
 
+    public Optional<Long> conversationIdByTrace(String traceId) {
+        return Optional.ofNullable(mapper.selectConversationIdByTrace(traceId));
+    }
+
     public List<AdminTurnResponse> turns(long conversationId) {
         return mapper.selectTurns(conversationId).stream()
                 .map(row -> new AdminTurnResponse(
@@ -71,6 +75,7 @@ public class AdminMonitorRepository {
                         asString(row, "model_provider_key"),
                         asString(row, "model_name"),
                         asString(row, "protocol_type"),
+                        List.of(),
                         asLocalDateTime(row, "created_at"),
                         asLocalDateTime(row, "updated_at")))
                 .toList();

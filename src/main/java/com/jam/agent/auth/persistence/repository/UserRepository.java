@@ -20,6 +20,11 @@ public class UserRepository {
                 .map(this::toRecord);
     }
 
+    public Optional<UserRecord> findById(long id) {
+        return Optional.ofNullable(mapper.selectById(id))
+                .map(this::toRecord);
+    }
+
     public long insert(String username, String passwordHash) {
         AppUserEntity user = new AppUserEntity();
         user.setUsername(username);

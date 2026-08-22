@@ -17,6 +17,8 @@ public interface AdminMonitorMapper {
 
     Map<String, Object> selectConversation(@Param("conversationId") long conversationId);
 
+    Long selectConversationIdByTrace(@Param("traceId") String traceId);
+
     List<Map<String, Object>> selectTurns(@Param("conversationId") long conversationId);
 
     List<Map<String, Object>> selectNodes(@Param("conversationId") long conversationId);

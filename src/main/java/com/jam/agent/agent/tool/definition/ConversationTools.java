@@ -36,7 +36,7 @@ public class ConversationTools implements AgentToolProvider {
             name = "query_image_summary",
             description = "查询当前会话历史图片的摘要。当用户询问之前发送的截图、图片细节且上下文没有图片内容时调用。")
     public String queryImageSummary(
-            @ToolParam(description = "要查询的历史轮次；不传则查询全部历史图片") Integer targetTurnId,
+            @ToolParam(description = "要查询的历史轮次；不传则查询全部历史图片", required = false) Integer targetTurnId,
             ToolContext toolContext) throws Exception {
         AgentExecutionContext context = requireExecutionContext(toolContext);
         if (targetTurnId != null && (targetTurnId < 1 || targetTurnId >= context.turnId())) {

@@ -2,6 +2,7 @@ package com.jam.agent.agent.config;
 
 public record AgentConfigAdminRequest(
         String agentKey,
+        boolean adminOnly,
         String executionType,
         String executionKey,
         String systemPrompt,

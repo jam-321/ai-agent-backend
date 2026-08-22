@@ -6,6 +6,7 @@ import java.util.Set;
 /** Public Agent recipe; model credentials are intentionally excluded. */
 public record AgentConfigResponse(
         String agentKey,
+        boolean adminOnly,
         String systemPrompt,
         Set<String> enabledPlugins,
         Set<String> enabledTools,
@@ -23,6 +24,7 @@ public record AgentConfigResponse(
     public static AgentConfigResponse from(AgentConfigSnapshot snapshot) {
         return new AgentConfigResponse(
                 snapshot.agentKey(),
+                snapshot.adminOnly(),
                 snapshot.systemPrompt(),
                 snapshot.enabledPlugins(),
                 snapshot.enabledTools(),

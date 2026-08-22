@@ -117,6 +117,7 @@ public class AgentConfigRepository {
                 : provider.toModelConfig(entity.getModelName(), entity.getModelTemperature());
         return new AgentConfigSnapshot(
                 entity.getAgentKey(),
+                Boolean.TRUE.equals(entity.getAdminOnly()),
                 entity.getSystemPrompt(),
                 parsePlugins(entity.getEnabledPlugins()),
                 parseTools(entity.getEnabledTools()),

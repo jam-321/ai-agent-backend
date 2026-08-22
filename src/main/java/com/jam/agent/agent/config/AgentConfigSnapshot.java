@@ -6,6 +6,7 @@ import java.util.Set;
 /** Immutable agent recipe captured for one turn. */
 public record AgentConfigSnapshot(
         String agentKey,
+        boolean adminOnly,
         String systemPrompt,
         Set<String> enabledPlugins,
         Set<String> enabledTools,
@@ -21,7 +22,7 @@ public record AgentConfigSnapshot(
             Set<String> enabledPlugins,
             Set<String> enabledTools,
             String magicParams) {
-        this(agentKey, systemPrompt, enabledPlugins, enabledTools, magicParams,
+        this(agentKey, false, systemPrompt, enabledPlugins, enabledTools, magicParams,
                 "SUMMARY_TOOL", "LOOP", null, null);
     }
 
@@ -33,7 +34,7 @@ public record AgentConfigSnapshot(
             String magicParams,
             String executionType,
             String executionKey) {
-        this(agentKey, systemPrompt, enabledPlugins, enabledTools, magicParams,
+        this(agentKey, false, systemPrompt, enabledPlugins, enabledTools, magicParams,
                 "SUMMARY_TOOL",
                 executionType, executionKey, null);
     }
@@ -48,7 +49,7 @@ public record AgentConfigSnapshot(
             String executionType,
             String executionKey,
             AgentModelConfig modelConfig) {
-        this(agentKey, systemPrompt, enabledPlugins, enabledTools, magicParams,
+        this(agentKey, false, systemPrompt, enabledPlugins, enabledTools, magicParams,
                 "SUMMARY_TOOL", executionType, executionKey, modelConfig);
     }
 
@@ -77,6 +78,7 @@ public record AgentConfigSnapshot(
     public static AgentConfigSnapshot defaultConfig() {
         return new AgentConfigSnapshot(
                 "general",
+                false,
                 "你是一个友好、专业的中文 AI Agent。需要准确时间时调用 current_time，需要精确算术时调用 calculate，需要查询历史工具完整数据时调用 query_conversation_node。不要编造工具结果。",
                 Set.of(),
                 null,

@@ -29,6 +29,11 @@ public class ApiExceptionHandler {
     @ExceptionHandler(AgentRunService.NotFoundException.class)
     public ResponseEntity<Map<String, String>> notFound() { return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "资源不存在。")); }
 
+    @ExceptionHandler(AgentRunService.AgentAccessDeniedException.class)
+    public ResponseEntity<Map<String, String>> agentAccessDenied() {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "当前用户无权使用该 Agent。"));
+    }
+
     @ExceptionHandler(AgentRunService.ConversationBusyException.class)
     public ResponseEntity<Map<String, String>> busy() { return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", "当前会话正在处理中，请稍后再试。")); }
 

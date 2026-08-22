@@ -1,6 +1,7 @@
 package com.jam.agent.monitoring.service;
 
 import com.jam.agent.agent.service.AgentRunService;
+import com.jam.agent.agent.persistence.repository.ConversationTurnAttachmentRepository;
 import com.jam.agent.monitoring.dto.AdminConversationDetailResponse;
 import com.jam.agent.monitoring.dto.AdminConversationPageResponse;
 import com.jam.agent.monitoring.dto.AdminConversationSummaryResponse;
@@ -22,9 +23,13 @@ public class AdminMonitorService {
     private static final int MAX_PAGE_SIZE = 100;
 
     private final AdminMonitorRepository repository;
+    private final ConversationTurnAttachmentRepository attachments;
 
-    public AdminMonitorService(AdminMonitorRepository repository) {
+    public AdminMonitorService(
+            AdminMonitorRepository repository,
+            ConversationTurnAttachmentRepository attachments) {
         this.repository = repository;
+        this.attachments = attachments;
     }
 
     public AdminOverviewResponse overview() {
@@ -49,15 +54,94 @@ public class AdminMonitorService {
     public AdminConversationDetailResponse conversation(long conversationId) {
         AdminConversationSummaryResponse conversation = repository.conversation(conversationId)
                 .orElseThrow(AgentRunService.NotFoundException::new);
+        List<AdminTurnResponse> turns = repository.turns(conversationId).stream()
+                .map(turn -> turn.withAttachmentIds(
+                        attachments.findAssetIds(conversation.userId(), conversationId, turn.turnId())))
+                .toList();
+        List<AdminNodeResponse> nodes = repository.nodes(conversationId);
         return new AdminConversationDetailResponse(
                 conversation,
-                repository.turns(conversationId),
-                repository.nodes(conversationId),
-                buildTree(repository.turns(conversationId), repository.nodes(conversationId)));
+                turns,
+                nodes,
+                buildTree(turns, nodes));
+    }
+
+    /**
+     * 查询管理员 Agent 使用的会话片段。
+     *
+     * <p>会话 ID 查询整段会话；追加 Turn ID 或 trace ID 后只返回对应执行范围。
+     */
+    public AdminConversationDetailResponse detail(
+            Long conversationId,
+            Integer turnId,
+            String traceId) {
+        String normalizedTraceId = traceId == null || traceId.isBlank()
+                ? null
+                : traceId.trim();
+        if (conversationId == null && normalizedTraceId == null) {
+            throw new IllegalArgumentException("conversationId、turnId 或 traceId 至少提供一种定位条件。");
+        }
+        if (turnId != null && conversationId == null) {
+            throw new IllegalArgumentException("查询 turnId 时必须同时提供 conversationId。");
+        }
+
+        long resolvedConversationId = conversationId == null
+                ? repository.conversationIdByTrace(normalizedTraceId)
+                        .orElseThrow(AgentRunService.NotFoundException::new)
+                : conversationId;
+        AdminConversationDetailResponse full = conversation(resolvedConversationId);
+
+        java.util.Set<Integer> selectedTurnIds = new java.util.LinkedHashSet<>();
+        if (turnId != null) {
+            selectedTurnIds.add(turnId);
+        } else if (normalizedTraceId != null) {
+            full.turns().stream()
+                    .filter(turn -> normalizedTraceId.equals(turn.traceId()))
+                    .map(AdminTurnResponse::turnId)
+                    .forEach(selectedTurnIds::add);
+            full.nodes().stream()
+                    .filter(node -> normalizedTraceId.equals(node.traceId()))
+                    .map(AdminNodeResponse::turnId)
+                    .forEach(selectedTurnIds::add);
+        }
+
+        if (!selectedTurnIds.isEmpty()) {
+            boolean found = full.turns().stream().anyMatch(turn -> selectedTurnIds.contains(turn.turnId())
+                    && (normalizedTraceId == null || normalizedTraceId.equals(turn.traceId())))
+                    || full.nodes().stream().anyMatch(node -> selectedTurnIds.contains(node.turnId())
+                    && (normalizedTraceId == null || normalizedTraceId.equals(node.traceId())));
+            if (!found) {
+                throw new AgentRunService.NotFoundException();
+            }
+            return filterTurns(full, selectedTurnIds, normalizedTraceId);
+        }
+        if (normalizedTraceId != null) {
+            throw new AgentRunService.NotFoundException();
+        }
+        return full;
     }
 
     public List<AdminToolStatisticsResponse> tools() {
         return repository.toolStatistics();
+    }
+
+    private AdminConversationDetailResponse filterTurns(
+            AdminConversationDetailResponse full,
+            java.util.Set<Integer> turnIds,
+            String traceId) {
+        List<AdminTurnResponse> turns = full.turns().stream()
+                .filter(turn -> turnIds.contains(turn.turnId())
+                        && (traceId == null || traceId.equals(turn.traceId())))
+                .toList();
+        List<AdminNodeResponse> nodes = full.nodes().stream()
+                .filter(node -> turnIds.contains(node.turnId())
+                        && (traceId == null || traceId.equals(node.traceId())))
+                .toList();
+        return new AdminConversationDetailResponse(
+                full.conversation(),
+                turns,
+                nodes,
+                buildTree(turns, nodes));
     }
 
     private List<AdminTurnTreeResponse> buildTree(

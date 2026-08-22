@@ -16,6 +16,10 @@ public interface SchemaMigrationMapper {
 
     int countAgentConfigTable();
 
+    int countAgentConfigAdminOnlyColumn();
+
+    void addAgentConfigAdminOnlyColumn();
+
     int countModelProviderConfigTable();
 
     void createModelProviderConfigTable();
@@ -79,4 +83,6 @@ public interface SchemaMigrationMapper {
     void createTurnAttachmentTable();
 
     void updateBuiltInAgentTools();
+
+    void removeUserSessionDetailTool();
 }
