@@ -67,10 +67,11 @@ logging:
 
 agent:
   budget:
-    max-tokens-per-turn: 200000
-    max-context-tokens: 32000
-    max-output-tokens: 4096
-    safety-margin-tokens: 2048
+    max-tokens-per-turn: 2000000
+    max-context-tokens: 200000
+    max-output-tokens: 8192
+    safety-margin-tokens: 4096
+    max-user-input-tokens: 32000
   loop:
     max-attempts: 2
     max-tool-rounds: 40
@@ -83,10 +84,10 @@ agent:
     max-tool-pairs-per-turn: 3
     max-tool-args-preview-chars: 300
     max-tool-result-preview-chars: 500
-    max-history-tokens: 24000
+    max-history-tokens: 160000
     compaction-enabled: true
-    compaction-trigger-tokens: 18000
-    keep-recent-tokens: 8000
+    compaction-trigger-tokens: 160000
+    keep-recent-tokens: 30000
     max-tool-result-tokens: 5000
     compacted-tool-preview-chars: 1200
   progress:

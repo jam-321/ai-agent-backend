@@ -30,4 +30,30 @@
         WHERE agent_key = #{agentKey}
     </select>
 
+    <update id="updateBuiltinRuntimeDefaults">
+        UPDATE agent_config
+        SET magic_params = JSON_SET(
+            COALESCE(NULLIF(magic_params, ''), JSON_OBJECT()),
+            '$.budget', IF(
+                JSON_EXTRACT(NULLIF(magic_params, ''), '$.budget') IS NULL,
+                JSON_EXTRACT(CAST(#{defaults} AS JSON), '$.budget'),
+                JSON_EXTRACT(NULLIF(magic_params, ''), '$.budget')),
+            '$.memory', IF(
+                JSON_EXTRACT(NULLIF(magic_params, ''), '$.memory') IS NULL,
+                JSON_EXTRACT(CAST(#{defaults} AS JSON), '$.memory'),
+                JSON_EXTRACT(NULLIF(magic_params, ''), '$.memory')),
+            '$.memory.maxToolPairsPerTurn', IF(
+                JSON_EXTRACT(NULLIF(magic_params, ''), '$.memory.maxToolPairsPerTurn') IS NULL,
+                JSON_EXTRACT(CAST(#{defaults} AS JSON), '$.memory.maxToolPairsPerTurn'),
+                JSON_EXTRACT(NULLIF(magic_params, ''), '$.memory.maxToolPairsPerTurn')))
+        WHERE agent_key IN ('general', 'with_time', 'time_workflow', 'system_admin')
+          AND (
+              magic_params IS NULL
+              OR magic_params = ''
+              OR JSON_EXTRACT(magic_params, '$.budget') IS NULL
+              OR JSON_EXTRACT(magic_params, '$.memory') IS NULL
+              OR JSON_EXTRACT(magic_params, '$.memory.maxToolPairsPerTurn') IS NULL
+          )
+    </update>
+
 </mapper>

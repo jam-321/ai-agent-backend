@@ -34,7 +34,8 @@ public record AdminConfigOptionsResponse(
             long maxTokensPerTurn,
             int maxContextTokens,
             int maxOutputTokens,
-            int safetyMarginTokens) {
+            int safetyMarginTokens,
+            int maxUserInputTokens) {
     }
 
     public record MemoryDefaults(
@@ -42,7 +43,8 @@ public record AdminConfigOptionsResponse(
             int compactionTriggerTokens,
             int keepRecentTokens,
             int maxToolResultTokens,
-            int compactedToolPreviewChars) {
+            int compactedToolPreviewChars,
+            int maxToolPairsPerTurn) {
     }
 
     public record WorkflowDefaults(int maxSteps) {

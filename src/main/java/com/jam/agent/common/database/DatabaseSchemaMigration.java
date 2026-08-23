@@ -93,9 +93,9 @@ public class DatabaseSchemaMigration implements ApplicationRunner {
         // 历史版本可能只剩部分工具；逐项追加可修复数据，同时不会覆盖额外配置。
         mapper.appendToolToBuiltInAgents("current_time");
         mapper.appendToolToBuiltInAgents("calculate");
-        mapper.appendToolToBuiltInAgents("query_conversation_node");
         mapper.appendToolToBuiltInAgents("query_image_summary");
         mapper.appendToolToBuiltInAgents("query_tool_output");
+        mapper.removeConversationNodeTool();
         mapper.removeUserSessionDetailTool();
     }
 }

@@ -9,7 +9,19 @@ public record AgentMemoryConfig(
         int compactionTriggerTokens,
         int keepRecentTokens,
         int maxToolResultTokens,
-        int compactedToolPreviewChars) {
+        int compactedToolPreviewChars,
+        int maxToolPairsPerTurn) {
+
+    /** 兼容旧调用方，历史工具对数量使用全局默认值。 */
+    public AgentMemoryConfig(
+            boolean compactionEnabled,
+            int compactionTriggerTokens,
+            int keepRecentTokens,
+            int maxToolResultTokens,
+            int compactedToolPreviewChars) {
+        this(compactionEnabled, compactionTriggerTokens, keepRecentTokens,
+                maxToolResultTokens, compactedToolPreviewChars, 3);
+    }
 
     public static AgentMemoryConfig resolve(
             AgentProperties.Memory defaults,
@@ -30,6 +42,8 @@ public record AgentMemoryConfig(
                 AgentBudgetConfig.boundedInt(node, "maxToolResultTokens",
                         defaults.getMaxToolResultTokens(), 256, defaults.getMaxToolResultTokens()),
                 AgentBudgetConfig.boundedInt(node, "compactedToolPreviewChars",
-                        defaults.getCompactedToolPreviewChars(), 100, defaults.getCompactedToolPreviewChars()));
+                        defaults.getCompactedToolPreviewChars(), 100, defaults.getCompactedToolPreviewChars()),
+                AgentBudgetConfig.boundedInt(node, "maxToolPairsPerTurn",
+                        defaults.getMaxToolPairsPerTurn(), 0, defaults.getMaxToolPairsPerTurn()));
     }
 }

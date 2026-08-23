@@ -86,6 +86,8 @@ public interface SchemaMigrationMapper {
 
     void removeUserSessionDetailTool();
 
+    void removeConversationNodeTool();
+
     int countConversationNodeOutputTable();
 
     void createConversationNodeOutputTable();

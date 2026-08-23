@@ -69,11 +69,12 @@ public class AdminConfigOptionsController {
                         loop.getMaxSameToolSignature()),
                 new BudgetDefaults(
                         budget.getMaxTokensPerTurn(), budget.getMaxContextTokens(),
-                        budget.getMaxOutputTokens(), budget.getSafetyMarginTokens()),
+                        budget.getMaxOutputTokens(), budget.getSafetyMarginTokens(),
+                        budget.getMaxUserInputTokens()),
                 new MemoryDefaults(
                         memory.isCompactionEnabled(), memory.getCompactionTriggerTokens(),
                         memory.getKeepRecentTokens(), memory.getMaxToolResultTokens(),
-                        memory.getCompactedToolPreviewChars()),
+                        memory.getCompactedToolPreviewChars(), memory.getMaxToolPairsPerTurn()),
                 new WorkflowDefaults(workflow.getMaxSteps()));
     }
 }

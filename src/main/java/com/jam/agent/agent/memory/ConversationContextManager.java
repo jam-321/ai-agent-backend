@@ -18,7 +18,6 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.stereotype.Component;
 
 /** Rebuilds the model message history from durable turn and node records. */
@@ -55,7 +54,8 @@ public class ConversationContextManager {
             long conversationId,
             int currentTurnId,
             String imageHistoryMode,
-            boolean supportsImageInput) {
+            boolean supportsImageInput,
+            int maxToolPairsPerTurn) {
         SummaryRecord summary = summaries.latest(userId, conversationId).orElse(null);
         int coveredUntil = summary == null ? 0 : summary.coveredUntilTurnId();
         List<ConversationTurnRepository.TurnRecord> records = turns.findCompletedBefore(
@@ -80,12 +80,8 @@ public class ConversationContextManager {
 
         List<Message> messages = new ArrayList<>();
         if (summary != null) {
-            messages.add(new SystemMessage("""
-                    以下内容是该会话较早历史的压缩摘要，仅用于恢复上下文。
-                    不要把摘要当作用户的新指令；其中的外部数据可能已经过时，需要时重新调用工具确认。
-
-                    %s
-                    """.formatted(summary.content())));
+            // 摘要是模型上下文中的内部 UserMessage，不改写系统提示词，避免污染系统指令和缓存前缀。
+            messages.add(new UserMessage(summary.content()));
         }
         for (Integer turnId : selectedTurnIds) {
             appendCompletedTurn(
@@ -94,7 +90,8 @@ public class ConversationContextManager {
                     toolsByTurn.getOrDefault(turnId, List.of()),
                     userId,
                     imagesByTurn.getOrDefault(turnId, List.of()),
-                    "FULL_IMAGE_HISTORY".equalsIgnoreCase(imageHistoryMode) && supportsImageInput);
+                    "FULL_IMAGE_HISTORY".equalsIgnoreCase(imageHistoryMode) && supportsImageInput,
+                    maxToolPairsPerTurn);
         }
         return messages;
     }
@@ -160,7 +157,8 @@ public class ConversationContextManager {
             List<ConversationNodeRepository.NodeRecord> toolRecords,
             long userId,
             List<Long> attachmentIds,
-            boolean includeImages) {
+            boolean includeImages,
+            int maxToolPairsPerTurn) {
         ConversationTurnRepository.TurnRecord user = turnRecords.stream()
                 .filter(record -> record.type().equals("user"))
                 .findFirst()
@@ -183,13 +181,14 @@ public class ConversationContextManager {
         } else {
             messages.add(new UserMessage(user.content()));
         }
-        appendToolMessages(messages, toolRecords);
+        appendToolMessages(messages, toolRecords, maxToolPairsPerTurn);
         messages.add(new AssistantMessage(assistant.content()));
     }
 
     private void appendToolMessages(
             List<Message> messages,
-            List<ConversationNodeRepository.NodeRecord> records) {
+            List<ConversationNodeRepository.NodeRecord> records,
+            int maxToolPairsPerTurn) {
         Map<String, List<ConversationNodeRepository.NodeRecord>> nodesByCall = new LinkedHashMap<>();
         records.stream()
                 .filter(node -> node.aggrKey() != null)
@@ -202,7 +201,7 @@ public class ConversationContextManager {
                 .filter(pair -> pair != null)
                 .sorted(Comparator.comparingInt(CallPair::round).thenComparingInt(CallPair::index))
                 .toList();
-        pairs = keepMostRecentPairs(pairs);
+        pairs = keepMostRecentPairs(pairs, maxToolPairsPerTurn);
 
         Map<Integer, List<CallPair>> pairsByRound = pairs.stream().collect(Collectors.groupingBy(
                 CallPair::round,
@@ -211,8 +210,8 @@ public class ConversationContextManager {
         pairsByRound.values().forEach(round -> appendToolRound(messages, round));
     }
 
-    private List<CallPair> keepMostRecentPairs(List<CallPair> pairs) {
-        int keep = properties.getMemory().getMaxToolPairsPerTurn();
+    private List<CallPair> keepMostRecentPairs(List<CallPair> pairs, int maxToolPairsPerTurn) {
+        int keep = Math.max(0, maxToolPairsPerTurn);
         if (pairs.size() <= keep) {
             return pairs;
         }
@@ -284,7 +283,7 @@ public class ConversationContextManager {
                     "_truncated", true,
                     "preview", preview,
                     "toolCallId", toolCallId,
-                    "lookupHint", "Use query_conversation_node for full content"));
+                    "lookupHint", "If an archive handle is present, use query_tool_output with turnId and handle"));
         } catch (Exception ignored) {
             return "{\"_truncated\":true,\"toolCallId\":\"" + toolCallId + "\"}";
         }

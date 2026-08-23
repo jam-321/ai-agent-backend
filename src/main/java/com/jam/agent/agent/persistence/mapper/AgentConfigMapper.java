@@ -7,4 +7,6 @@ import org.apache.ibatis.annotations.Param;
 public interface AgentConfigMapper extends BaseMapper<AgentConfigEntity> {
 
     AgentConfigEntity selectByAgentKey(@Param("agentKey") String agentKey);
+
+    void updateBuiltinRuntimeDefaults(@Param("defaults") String defaults);
 }

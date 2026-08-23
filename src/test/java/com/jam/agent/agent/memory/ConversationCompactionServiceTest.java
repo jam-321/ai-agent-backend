@@ -1,6 +1,8 @@
 package com.jam.agent.agent.memory;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -17,52 +19,42 @@ import com.jam.agent.agent.model.protocol.ModelCallResult;
 import com.jam.agent.agent.persistence.repository.ConversationMemorySummaryRepository;
 import com.jam.agent.agent.runtime.AgentExecutionContext;
 import com.jam.agent.agent.runtime.TokenBudgetTracker;
-import com.jam.agent.conversation.persistence.repository.ConversationTurnRepository;
-import com.jam.agent.conversation.persistence.repository.ConversationTurnRepository.TurnRecord;
 import java.time.Instant;
-import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.UserMessage;
 
 class ConversationCompactionServiceTest {
 
     @Test
-    void summarizesContiguousOldTurnsAndPersistsCoverage() {
-        ConversationTurnRepository turns = mock(ConversationTurnRepository.class);
-        ConversationMemorySummaryRepository summaries = mock(ConversationMemorySummaryRepository.class);
+    void compactsOldMessagesIntoUserCheckpointAndPersistsIt() {
         ModelAdapter model = mock(ModelAdapter.class);
         Dispatcher events = mock(Dispatcher.class);
+        ConversationMemorySummaryRepository summaries = mock(ConversationMemorySummaryRepository.class);
         AgentExecutionContext context = context();
-        List<TurnRecord> history = List.of(
-                turn(1, "user", "第一轮用户提出了一个很长的目标和约束条件"),
-                turn(1, "assistant", "第一轮助手确认了目标并给出关键决定"),
-                turn(2, "user", "第二轮继续补充很多重要的数据和未解决问题"),
-                turn(2, "assistant", "第二轮助手记录了下一步和已经完成的事项"));
         ModelCallResult usage = new ModelCallResult(
                 new AssistantMessage("结构化历史摘要"), "response", "model", 100L, 20L);
-        when(summaries.latest(1, 2)).thenReturn(Optional.empty());
-        when(turns.findCompletedRange(1, 2, 0, 3)).thenReturn(history);
         when(model.call(anyList(), anyList(), eq(context), eq(ModelCallScope.conversationCompaction())))
                 .thenReturn(usage);
 
+        List<Message> messages = new ArrayList<>(List.of(
+                new UserMessage("较早的用户目标和约束条件"),
+                new AssistantMessage("较早的关键决定和已完成事项"),
+                new UserMessage("最近一轮仍需保留的内容")));
+
         new ConversationCompactionService(
-                turns, summaries, new TokenEstimator(), model, events)
-                .compactIfNeeded(context);
+                new TokenEstimator(), model, events, summaries)
+                .compactIfNeeded(messages, List.of(), context, 1, 1, 20L);
 
-        verify(summaries).insert(
-                2, 1, 2, "结构化历史摘要", "provider", "model", usage);
-        verify(events).lifecycle(context, 1, 0,
-                "conversation_compaction_success:coveredUntilTurn=2");
-    }
-
-    private TurnRecord turn(int turnId, String type, String content) {
-        return new TurnRecord(
-                turnId * 10L, 2, turnId, type, content, false, null,
-                "trace-" + turnId, "general", "provider", "model", "TEST",
-                LocalDateTime.now(), LocalDateTime.now());
+        assertTrue(messages.get(0).getText().contains("[CONTEXT_SUMMARY]"));
+        verify(summaries).upsertCheckpoint(
+                eq(2L), eq(3), anyString(), eq("provider"), eq("model"), eq(usage));
+        verify(events).lifecycle(
+                eq(context), eq(1), eq(1), anyString());
     }
 
     private AgentExecutionContext context() {

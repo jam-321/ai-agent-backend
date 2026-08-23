@@ -60,6 +60,10 @@ public class AgentConfigRepository {
         mapper.deleteById(entity.getId());
     }
 
+    public void updateBuiltinRuntimeDefaults(String defaults) {
+        mapper.updateBuiltinRuntimeDefaults(defaults);
+    }
+
     public void insert(
             String agentKey,
             String systemPrompt,

@@ -69,7 +69,7 @@ public class InMemoryContextCompactor {
         value.put("turnId", context.turnId());
         value.put("handle", response.id());
         value.put("preview", content.substring(0, previewLength));
-        value.put("lookupHint", "Use query_conversation_node with turnId and handle for the full node content");
+        value.put("lookupHint", "If an archive handle is present, use query_tool_output with turnId and handle");
         try {
             content = objectMapper.writeValueAsString(value);
         } catch (Exception ignored) {

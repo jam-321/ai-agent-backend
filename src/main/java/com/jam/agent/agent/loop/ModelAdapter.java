@@ -7,7 +7,6 @@ import com.jam.agent.agent.memory.TokenEstimator;
 import com.jam.agent.agent.model.ModelCallScope;
 import com.jam.agent.agent.model.protocol.ModelProtocolRegistry;
 import com.jam.agent.agent.runtime.AgentExecutionContext;
-import com.jam.agent.agent.runtime.AgentRunException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.LinkedHashMap;
@@ -31,7 +30,7 @@ public class ModelAdapter {
     private static final String SYSTEM_PROMPT = """
             你是一个友好、专业的中文 AI Agent。
             需要准确时间时调用 current_time，需要精确算术时调用 calculate，
-            需要查询历史工具节点时调用 query_conversation_node，被压缩的大结果按提示调用 query_tool_output。不要编造工具结果。
+            被压缩的大结果按提示调用 query_tool_output。不要编造工具结果。
             """;
 
     private final ModelProtocolRegistry protocols;
@@ -64,7 +63,6 @@ public class ModelAdapter {
             ModelCallScope scope) {
         List<Message> prompt = withSystemPrompt(messages, context);
         int estimatedInputTokens = tokenEstimator.estimate(prompt, tools);
-        ensureContextWindow(context, estimatedInputTokens);
         if (scope.countAgainstTurnBudget()) {
             context.tokenBudget().ensureCallAllowed(
                     estimatedInputTokens, context.budgetConfig().maxOutputTokens());
@@ -94,18 +92,6 @@ public class ModelAdapter {
             throw new RetryableModelException(
                     "模型调用失败：" + safeMessage(exception),
                     exception);
-        }
-    }
-
-    private void ensureContextWindow(AgentExecutionContext context, int estimatedInputTokens) {
-        long required = (long) estimatedInputTokens
-                + context.budgetConfig().maxOutputTokens()
-                + context.budgetConfig().safetyMarginTokens();
-        if (required > context.budgetConfig().maxContextTokens()) {
-            throw new AgentRunException(
-                    "模型上下文预计需要 " + required + " Token，超过当前 Agent 上限 "
-                            + context.budgetConfig().maxContextTokens() + "。",
-                    false);
         }
     }
 

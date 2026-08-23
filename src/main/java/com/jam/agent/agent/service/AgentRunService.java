@@ -16,6 +16,7 @@ import com.jam.agent.auth.persistence.repository.UserRepository;
 import com.jam.agent.agent.persistence.repository.AgentConfigRepository;
 import com.jam.agent.agent.model.AgentModelConfig;
 import com.jam.agent.agent.runtime.TokenBudgetTracker;
+import com.jam.agent.agent.memory.TokenEstimator;
 import com.jam.agent.agent.model.persistence.repository.ModelProviderConfigRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jam.agent.workflow.runtime.WorkflowConfig;
@@ -57,6 +58,7 @@ public class AgentRunService {
     private final ObjectMapper objectMapper;
     private final ImageAttachmentService images;
     private final UserRepository users;
+    private final TokenEstimator tokenEstimator;
 
     public AgentRunService(
             ConversationRepository conversations,
@@ -71,7 +73,8 @@ public class AgentRunService {
             ModelProviderConfigRepository modelProviders,
             ObjectMapper objectMapper,
             ImageAttachmentService images,
-            UserRepository users) {
+            UserRepository users,
+            TokenEstimator tokenEstimator) {
         this.conversations = conversations;
         this.turns = turns;
         this.lock = lock;
@@ -85,6 +88,7 @@ public class AgentRunService {
         this.objectMapper = objectMapper;
         this.images = images;
         this.users = users;
+        this.tokenEstimator = tokenEstimator;
     }
 
     public ChatResponse submit(long userId, ChatRequest request) {
@@ -115,6 +119,9 @@ public class AgentRunService {
                             .orElseGet(AgentConfigSnapshot::defaultConfig);
                 });
         ensureAgentAccess(userId, agentConfig);
+        AgentBudgetConfig budget = AgentBudgetConfig.resolve(
+                properties.getBudget(), agentConfig.magicParams(), objectMapper);
+        validateUserInput(query, budget.maxUserInputTokens());
         String effectiveAgentKey = agentConfig.agentKey();
         AgentModelConfig modelConfig = resolveModelConfig(
                 userId,
@@ -159,7 +166,8 @@ public class AgentRunService {
                     query,
                     attachmentIds,
                     agentConfig,
-                    modelConfig);
+                    modelConfig,
+                    budget);
 
             submitWorker(context);
             workerOwnsLock = true;
@@ -176,6 +184,15 @@ public class AgentRunService {
             throw new IllegalArgumentException("消息不能为空。");
         }
         return request.message().trim();
+    }
+
+    /** 在写入 user turn 前限制单次文本输入，避免超大请求先入库再异步失败。 */
+    private void validateUserInput(String query, int maxTokens) {
+        int estimated = tokenEstimator.estimateText(query);
+        if (estimated > maxTokens) {
+            throw new IllegalArgumentException(
+                    "用户消息过长，预计 " + estimated + " Token，当前上限为 " + maxTokens + " Token。 ");
+        }
     }
 
     private AgentModelConfig resolveModelConfig(
@@ -253,7 +270,8 @@ public class AgentRunService {
             String query,
             List<Long> attachmentIds,
             AgentConfigSnapshot agentConfig,
-            AgentModelConfig modelConfig) {
+            AgentModelConfig modelConfig,
+            AgentBudgetConfig budget) {
         AgentLoopConfig loop = AgentLoopConfig.resolve(
                 properties.getLoop(),
                 agentConfig.magicParams(),
@@ -262,8 +280,6 @@ public class AgentRunService {
                 properties.getWorkflow(),
                 agentConfig.magicParams(),
                 objectMapper);
-        AgentBudgetConfig budget = AgentBudgetConfig.resolve(
-                properties.getBudget(), agentConfig.magicParams(), objectMapper);
         AgentMemoryConfig memory = AgentMemoryConfig.resolve(
                 properties.getMemory(), agentConfig.magicParams(), objectMapper);
         return new AgentExecutionContext(
@@ -284,7 +300,8 @@ public class AgentRunService {
                 AgentExecutionContext.deadline(loop.maxRunDuration()),
                 budget,
                 memory,
-                new TokenBudgetTracker(budget.maxTokensPerTurn()));
+                new TokenBudgetTracker(budget.maxTokensPerTurn()),
+                null);
     }
 
     private void submitWorker(AgentExecutionContext context) {

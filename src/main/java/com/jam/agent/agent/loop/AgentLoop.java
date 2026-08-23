@@ -5,6 +5,8 @@ import com.jam.agent.agent.runtime.AgentExecutionContext;
 import com.jam.agent.agent.model.ModelCallScope;
 import com.jam.agent.agent.runtime.TokenBudgetTracker.TokenBudgetExceededException;
 import com.jam.agent.agent.memory.InMemoryContextCompactor;
+import com.jam.agent.agent.memory.ConversationCompactionService;
+import com.jam.agent.agent.model.protocol.ModelCallResult;
 import com.jam.agent.agent.tool.ToolExecutor;
 import com.jam.agent.agent.tool.ToolExecutor.ToolResult;
 import java.util.ArrayList;
@@ -37,18 +39,21 @@ public class AgentLoop {
     private final Dispatcher events;
     private final Executor toolExecutor;
     private final InMemoryContextCompactor contextCompactor;
+    private final ConversationCompactionService conversationCompactor;
 
     public AgentLoop(
             ModelAdapter model,
             ToolExecutor tools,
             Dispatcher events,
             @Qualifier("agentToolExecutor") Executor toolExecutor,
-            InMemoryContextCompactor contextCompactor) {
+            InMemoryContextCompactor contextCompactor,
+            ConversationCompactionService conversationCompactor) {
         this.model = model;
         this.tools = tools;
         this.events = events;
         this.toolExecutor = toolExecutor;
         this.contextCompactor = contextCompactor;
+        this.conversationCompactor = conversationCompactor;
     }
 
     /** Runs model rounds until the model returns a final answer without tool calls. */
@@ -73,17 +78,18 @@ public class AgentLoop {
             contextCompactor.compactIfNeeded(
                     messages, callbacks, context, attemptNo, roundNo);
 
-            AssistantMessage response;
+            ModelCallResult modelResult;
             try {
-                response = model.call(
+                modelResult = model.call(
                         messages,
                         callbacks,
                         context,
-                        ModelCallScope.agentRound(attemptNo, roundNo)).message();
+                        ModelCallScope.agentRound(attemptNo, roundNo));
             } catch (TokenBudgetExceededException exception) {
                 events.lifecycle(context, attemptNo, roundNo, "budget_limit_reached");
                 return "本次执行已达到当前 Agent 的 Token 预算，已停止继续调用模型和工具。";
             }
+            AssistantMessage response = modelResult.message();
             if (context.tokenBudget().exhausted() && response.hasToolCalls()) {
                 events.lifecycle(context, attemptNo, roundNo, "budget_limit_reached");
                 return isMeaningful(response.getText())
@@ -98,6 +104,14 @@ public class AgentLoop {
                         response,
                         messages,
                         repetitionGuard);
+                // 工具结果已经回填，基于本次真实 usage 和下一轮消息估算决定是否生成上下文摘要。
+                conversationCompactor.compactIfNeeded(
+                        messages,
+                        callbacks,
+                        context,
+                        attemptNo,
+                        roundNo,
+                        modelResult.inputTokens());
                 degenerateRetries = 0;
                 continue;
             }
@@ -105,6 +119,15 @@ public class AgentLoop {
             String answer = response.getText();
             if (isMeaningful(answer)) {
                 messages.add(response);
+                // 最终回答也属于当前 Turn 的上下文，必要时生成并保存最终检查点。
+                conversationCompactor.compactIfNeeded(
+                        messages,
+                        callbacks,
+                        context,
+                        attemptNo,
+                        roundNo,
+                        modelResult.inputTokens());
+                conversationCompactor.captureFinalMessages(context, messages);
                 return answer;
             }
 
@@ -114,6 +137,13 @@ public class AgentLoop {
 
             degenerateRetries++;
             messages.add(new UserMessage(DEGENERATE_NUDGE));
+            conversationCompactor.compactIfNeeded(
+                    messages,
+                    callbacks,
+                    context,
+                    attemptNo,
+                    roundNo,
+                    modelResult.inputTokens());
         }
 
         throw new IllegalStateException(

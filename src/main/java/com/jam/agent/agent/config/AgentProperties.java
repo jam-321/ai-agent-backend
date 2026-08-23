@@ -48,10 +48,10 @@ public class AgentProperties {
         private int maxToolPairsPerTurn = 3;
         private int maxToolArgsPreviewChars = 300;
         private int maxToolResultPreviewChars = 500;
-        private int maxHistoryTokens = 24000;
+        private int maxHistoryTokens = 160000;
         private boolean compactionEnabled = true;
-        private int compactionTriggerTokens = 18000;
-        private int keepRecentTokens = 8000;
+        private int compactionTriggerTokens = 160000;
+        private int keepRecentTokens = 30000;
         private int maxToolResultTokens = 5000;
         private int compactedToolPreviewChars = 1200;
         public int getMaxHistoryTurns() { return maxHistoryTurns; }
@@ -78,10 +78,11 @@ public class AgentProperties {
 
     /** 全局安全上限；Agent 配方只能把预算调低，不能突破这里。 */
     public static class Budget {
-        private long maxTokensPerTurn = 200000;
-        private int maxContextTokens = 32000;
-        private int maxOutputTokens = 4096;
-        private int safetyMarginTokens = 2048;
+        private long maxTokensPerTurn = 2000000;
+        private int maxContextTokens = 200000;
+        private int maxOutputTokens = 8192;
+        private int safetyMarginTokens = 4096;
+        private int maxUserInputTokens = 32000;
         public long getMaxTokensPerTurn() { return maxTokensPerTurn; }
         public void setMaxTokensPerTurn(long v) { maxTokensPerTurn = v; }
         public int getMaxContextTokens() { return maxContextTokens; }
@@ -90,6 +91,8 @@ public class AgentProperties {
         public void setMaxOutputTokens(int v) { maxOutputTokens = v; }
         public int getSafetyMarginTokens() { return safetyMarginTokens; }
         public void setSafetyMarginTokens(int v) { safetyMarginTokens = v; }
+        public int getMaxUserInputTokens() { return maxUserInputTokens; }
+        public void setMaxUserInputTokens(int v) { maxUserInputTokens = v; }
     }
 
     public static class Progress {

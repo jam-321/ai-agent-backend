@@ -11,4 +11,19 @@
         ORDER BY s.covered_until_turn_id DESC, s.id DESC
         LIMIT 1
     </select>
+
+    <insert id="upsertCheckpoint">
+        INSERT INTO conversation_memory_summary (
+            conversation_id, covered_from_turn_id, covered_until_turn_id,
+            content, model_provider_key, model_name, input_tokens, output_tokens)
+        VALUES (
+            #{conversationId}, 1, #{turnId}, #{content}, #{providerKey}, #{modelName},
+            #{inputTokens}, #{outputTokens})
+        ON DUPLICATE KEY UPDATE
+            content = VALUES(content),
+            model_provider_key = VALUES(model_provider_key),
+            model_name = VALUES(model_name),
+            input_tokens = VALUES(input_tokens),
+            output_tokens = VALUES(output_tokens)
+    </insert>
 </mapper>

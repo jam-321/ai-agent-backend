@@ -39,6 +39,23 @@ public class ConversationMemorySummaryRepository {
         mapper.insert(entity);
     }
 
+    public void upsertCheckpoint(
+            long conversationId,
+            int turnId,
+            String content,
+            String providerKey,
+            String modelName,
+            ModelCallResult usage) {
+        mapper.upsertCheckpoint(
+                conversationId,
+                turnId,
+                content,
+                providerKey,
+                modelName,
+                usage == null ? null : usage.inputTokens(),
+                usage == null ? null : usage.outputTokens());
+    }
+
     private SummaryRecord toRecord(ConversationMemorySummaryEntity entity) {
         return new SummaryRecord(
                 entity.getId(),

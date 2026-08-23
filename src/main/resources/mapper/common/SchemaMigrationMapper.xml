@@ -403,6 +403,16 @@
           AND JSON_SEARCH(enabled_tools, 'one', 'query_session_detail') IS NOT NULL
     </update>
 
+    <update id="removeConversationNodeTool">
+        UPDATE agent_config
+        SET enabled_tools = JSON_REMOVE(
+                enabled_tools,
+                JSON_UNQUOTE(JSON_SEARCH(enabled_tools, 'one', 'query_conversation_node')))
+        WHERE agent_key IN ('general', 'with_time', 'time_workflow', 'system_admin')
+          AND enabled_tools IS NOT NULL
+          AND JSON_SEARCH(enabled_tools, 'one', 'query_conversation_node') IS NOT NULL
+    </update>
+
     <select id="countConversationNodeOutputTable" resultType="int">
         SELECT COUNT(*) FROM information_schema.tables
         WHERE table_schema = DATABASE() AND table_name = 'conversation_node_output'

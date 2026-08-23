@@ -3,6 +3,7 @@ package com.jam.agent.agent.runtime;
 import com.jam.agent.agent.config.AgentConfigSnapshot;
 import com.jam.agent.agent.config.AgentBudgetConfig;
 import com.jam.agent.agent.config.AgentMemoryConfig;
+import com.jam.agent.agent.memory.ContextCheckpointState;
 import com.jam.agent.agent.model.AgentModelConfig;
 import java.time.Duration;
 import java.time.Instant;
@@ -32,19 +33,21 @@ public record AgentExecutionContext(
         Instant deadline,
         AgentBudgetConfig budgetConfig,
         AgentMemoryConfig memoryConfig,
-        TokenBudgetTracker tokenBudget) {
+        TokenBudgetTracker tokenBudget,
+        ContextCheckpointState checkpointState) {
 
     public AgentExecutionContext {
         attachmentIds = attachmentIds == null ? List.of() : List.copyOf(attachmentIds);
         budgetConfig = budgetConfig == null
-                ? new AgentBudgetConfig(200000, 32000, 4096, 2048)
+                ? new AgentBudgetConfig(2000000, 200000, 8192, 4096, 32000)
                 : budgetConfig;
         memoryConfig = memoryConfig == null
-                ? new AgentMemoryConfig(true, 18000, 8000, 5000, 1200)
+                ? new AgentMemoryConfig(true, 160000, 30000, 5000, 1200, 3)
                 : memoryConfig;
         tokenBudget = tokenBudget == null
                 ? new TokenBudgetTracker(budgetConfig.maxTokensPerTurn())
                 : tokenBudget;
+        checkpointState = checkpointState == null ? new ContextCheckpointState() : checkpointState;
     }
 
     /** 兼容恢复任务和不带附件的旧调用方。 */
@@ -66,7 +69,33 @@ public record AgentExecutionContext(
         this(userId, conversationId, turnId, traceId, currentQuery, List.of(), agentConfig,
                 modelConfig, maxAttempts, maxToolRounds, maxToolsPerRound,
                 maxDegenerateRetries, maxSameToolSignature, maxWorkflowSteps, deadline,
-                null, null, null);
+                null, null, null, null);
+    }
+
+    /** 兼容旧测试和恢复代码使用的完整预算构造方式。 */
+    public AgentExecutionContext(
+            long userId,
+            long conversationId,
+            int turnId,
+            String traceId,
+            String currentQuery,
+            List<Long> attachmentIds,
+            AgentConfigSnapshot agentConfig,
+            AgentModelConfig modelConfig,
+            int maxAttempts,
+            int maxToolRounds,
+            int maxToolsPerRound,
+            int maxDegenerateRetries,
+            int maxSameToolSignature,
+            int maxWorkflowSteps,
+            Instant deadline,
+            AgentBudgetConfig budgetConfig,
+            AgentMemoryConfig memoryConfig,
+            TokenBudgetTracker tokenBudget) {
+        this(userId, conversationId, turnId, traceId, currentQuery, attachmentIds,
+                agentConfig, modelConfig, maxAttempts, maxToolRounds, maxToolsPerRound,
+                maxDegenerateRetries, maxSameToolSignature, maxWorkflowSteps, deadline,
+                budgetConfig, memoryConfig, tokenBudget, null);
     }
 
     /** 兼容现有测试和恢复代码使用的不带附件构造方式。 */
@@ -89,7 +118,7 @@ public record AgentExecutionContext(
         this(userId, conversationId, turnId, traceId, currentQuery, attachmentIds,
                 agentConfig, modelConfig, maxAttempts, maxToolRounds, maxToolsPerRound,
                 maxDegenerateRetries, maxSameToolSignature, maxWorkflowSteps, deadline,
-                null, null, null);
+                null, null, null, null);
     }
 
     public void checkDeadline() {

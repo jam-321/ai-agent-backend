@@ -3,7 +3,6 @@ package com.jam.agent.agent.runtime;
 import com.jam.agent.agent.event.AgentTurnContext;
 import com.jam.agent.agent.event.Dispatcher;
 import com.jam.agent.agent.memory.ConversationContextManager;
-import com.jam.agent.agent.memory.ConversationCompactionService;
 import com.jam.agent.agent.service.ImageAttachmentService;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,28 +17,23 @@ public class AgentTurnPreparer {
     private final ConversationContextManager contextManager;
     private final Dispatcher events;
     private final ImageAttachmentService images;
-    private final ConversationCompactionService compaction;
-
     public AgentTurnPreparer(
             ConversationContextManager contextManager,
             Dispatcher events,
-            ImageAttachmentService images,
-            ConversationCompactionService compaction) {
+            ImageAttachmentService images) {
         this.contextManager = contextManager;
         this.events = events;
         this.images = images;
-        this.compaction = compaction;
     }
 
     public List<Message> prepare(AgentExecutionContext context) {
-        // 只压缩已完成的旧 Turn；当前 Turn 的工具结果由 AgentLoop 内的压缩器负责。
-        compaction.compactIfNeeded(context);
         List<Message> messages = new ArrayList<>(contextManager.rebuild(
                 context.userId(),
                 context.conversationId(),
                 context.turnId(),
                 context.agentConfig().imageHistoryMode(),
-                context.modelConfig().supportsImageInput()));
+                context.modelConfig().supportsImageInput(),
+                context.memoryConfig().maxToolPairsPerTurn()));
         if (context.modelConfig().supportsImageInput() && !context.attachmentIds().isEmpty()) {
             messages.add(UserMessage.builder()
                     .text(context.currentQuery())

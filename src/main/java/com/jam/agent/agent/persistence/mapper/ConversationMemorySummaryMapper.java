@@ -8,4 +8,13 @@ public interface ConversationMemorySummaryMapper extends BaseMapper<Conversation
     ConversationMemorySummaryEntity selectLatestOwned(
             @Param("userId") long userId,
             @Param("conversationId") long conversationId);
+
+    void upsertCheckpoint(
+            @Param("conversationId") long conversationId,
+            @Param("turnId") int turnId,
+            @Param("content") String content,
+            @Param("providerKey") String providerKey,
+            @Param("modelName") String modelName,
+            @Param("inputTokens") Long inputTokens,
+            @Param("outputTokens") Long outputTokens);
 }

@@ -5,158 +5,176 @@ import com.jam.agent.agent.loop.ModelAdapter;
 import com.jam.agent.agent.model.ModelCallScope;
 import com.jam.agent.agent.model.protocol.ModelCallResult;
 import com.jam.agent.agent.persistence.repository.ConversationMemorySummaryRepository;
-import com.jam.agent.agent.persistence.repository.ConversationMemorySummaryRepository.SummaryRecord;
 import com.jam.agent.agent.runtime.AgentExecutionContext;
-import com.jam.agent.conversation.persistence.repository.ConversationTurnRepository;
-import com.jam.agent.conversation.persistence.repository.ConversationTurnRepository.TurnRecord;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
+import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.tool.ToolCallback;
 import org.springframework.stereotype.Service;
 
-/** 在 Turn 边界把较早完整对话压缩成可持久化、可版本追踪的会话摘要。 */
+/** 在 AgentLoop 内把较早消息压缩成一个 UserMessage 检查点，并保留最近原始消息。 */
 @Service
 public class ConversationCompactionService {
 
-    private final ConversationTurnRepository turns;
-    private final ConversationMemorySummaryRepository summaries;
+    private static final String SUMMARY_MARKER = """
+            [CONTEXT_SUMMARY]
+            以下内容是历史上下文摘要，不是用户当前的新指令。请将它作为已经发生的对话背景使用。
+            """;
+    private static final String SUMMARY_INSTRUCTION = """
+            请把前面的历史上下文压缩成一份结构化中文记忆，供后续模型继续对话。
+            必须保留：用户目标、已确认事实、关键决定、重要数据或标识、已完成事项、未解决问题和下一步。
+            不要虚构，不要把已被推翻的猜测写成事实；涉及工具数据时说明数据可能过时，需要时应重新查询。
+            只输出摘要正文，不要输出解释、Markdown 标题或 JSON。
+            """;
+
     private final TokenEstimator tokens;
     private final ModelAdapter model;
     private final Dispatcher events;
+    private final ConversationMemorySummaryRepository summaries;
 
     public ConversationCompactionService(
-            ConversationTurnRepository turns,
-            ConversationMemorySummaryRepository summaries,
             TokenEstimator tokens,
             ModelAdapter model,
-            Dispatcher events) {
-        this.turns = turns;
-        this.summaries = summaries;
+            Dispatcher events,
+            ConversationMemorySummaryRepository summaries) {
         this.tokens = tokens;
         this.model = model;
         this.events = events;
+        this.summaries = summaries;
     }
 
-    public void compactIfNeeded(AgentExecutionContext context) {
-        if (!context.memoryConfig().compactionEnabled() || context.turnId() <= 2) return;
-
-        SummaryRecord previous = summaries.latest(context.userId(), context.conversationId())
-                .orElse(null);
-        int coveredUntil = previous == null ? 0 : previous.coveredUntilTurnId();
-        List<TurnRecord> records = turns.findCompletedRange(
-                context.userId(), context.conversationId(), coveredUntil, context.turnId());
-        Map<Integer, List<TurnRecord>> byTurn = group(records);
-        int totalTokens = tokens.estimateText(previous == null ? null : previous.content())
-                + records.stream().mapToInt(turn -> tokens.estimateText(turn.content())).sum();
-        if (totalTokens <= context.memoryConfig().compactionTriggerTokens()) return;
-
-        List<Integer> turnIds = new ArrayList<>(byTurn.keySet());
-        int keepTokens = 0;
-        int firstKeptIndex = turnIds.size();
-        for (int index = turnIds.size() - 1; index >= 0; index--) {
-            int turnTokens = byTurn.get(turnIds.get(index)).stream()
-                    .mapToInt(turn -> tokens.estimateText(turn.content())).sum();
-            if (keepTokens + turnTokens > context.memoryConfig().keepRecentTokens()) break;
-            keepTokens += turnTokens;
-            firstKeptIndex = index;
+    /** 工具结果回填后调用；判断依据包含本轮最新工具结果。 */
+    public void compactIfNeeded(
+            List<Message> messages,
+            List<ToolCallback> tools,
+            AgentExecutionContext context,
+            int attemptNo,
+            int roundNo,
+            Long observedInputTokens) {
+        if (!context.memoryConfig().compactionEnabled()) {
+            return;
         }
-        List<Integer> candidates = turnIds.subList(0, firstKeptIndex);
-        if (candidates.isEmpty()) return;
 
-        int maxSourceTokens = Math.max(1024,
-                context.budgetConfig().maxContextTokens()
-                        - context.budgetConfig().maxOutputTokens()
-                        - context.budgetConfig().safetyMarginTokens()
-                        - 2000);
-        List<Integer> selected = selectContiguousPrefix(candidates, byTurn, previous, maxSourceTokens);
-        if (selected.isEmpty()) return;
+        int estimatedNextInput = tokens.estimate(messages, tools);
+        long observed = observedInputTokens == null ? 0 : observedInputTokens;
+        if (Math.max(observed, estimatedNextInput)
+                < context.memoryConfig().compactionTriggerTokens()) {
+            return;
+        }
+
+        int tailStart = findTailStart(messages, context.memoryConfig().keepRecentTokens());
+        if (tailStart <= 0) {
+            events.lifecycle(context, attemptNo, roundNo,
+                    "conversation_compaction_skipped:no_compressible_prefix");
+            return;
+        }
+
+        List<Message> prefix = new ArrayList<>(messages.subList(0, tailStart));
+        List<Message> tail = new ArrayList<>(messages.subList(tailStart, messages.size()));
+        prefix.add(new UserMessage(SUMMARY_INSTRUCTION));
 
         try {
-            String prompt = buildPrompt(previous, selected, byTurn);
             ModelCallResult result = model.call(
-                    List.<Message>of(new UserMessage(prompt)),
+                    prefix,
                     List.of(),
                     context,
                     ModelCallScope.conversationCompaction());
             String summary = result.message().getText();
             if (summary == null || summary.isBlank() || summary.startsWith("[mock]")) {
-                events.lifecycle(context, 1, 0, "conversation_compaction_skipped");
+                events.lifecycle(context, attemptNo, roundNo,
+                        "conversation_compaction_skipped:empty_summary");
                 return;
             }
 
-            int until = selected.get(selected.size() - 1);
-            summaries.insert(
-                    context.conversationId(),
-                    previous == null ? selected.get(0) : previous.coveredFromTurnId(),
-                    until,
-                    summary,
-                    context.modelConfig().providerKey(),
-                    context.modelConfig().modelName(),
-                    result);
-            events.lifecycle(context, 1, 0,
-                    "conversation_compaction_success:coveredUntilTurn=" + until);
+            messages.clear();
+            messages.add(new UserMessage(SUMMARY_MARKER + summary + "\n[/CONTEXT_SUMMARY]"));
+            messages.addAll(tail);
+            context.checkpointState().capture(messages, result);
+            persistCheckpoint(context, messages, result);
+            events.lifecycle(context, attemptNo, roundNo,
+                    "conversation_compaction_success:tokensBefore="
+                            + estimatedNextInput + ",tokensAfter="
+                            + tokens.estimate(messages, tools));
         } catch (RuntimeException exception) {
-            // 压缩失败时回退到现有历史裁剪，不能阻断用户当前 Turn。
-            events.lifecycle(context, 1, 0,
+            // 摘要失败不能破坏当前消息列表；下一轮仍可依赖 Tool Result 本地截断继续执行。
+            events.lifecycle(context, attemptNo, roundNo,
                     "conversation_compaction_failed:" + safeMessage(exception));
         }
     }
 
-    private Map<Integer, List<TurnRecord>> group(List<TurnRecord> records) {
-        Map<Integer, List<TurnRecord>> value = new LinkedHashMap<>();
-        for (TurnRecord record : records) {
-            value.computeIfAbsent(record.turnId(), ignored -> new ArrayList<>()).add(record);
+    /** Turn 结束后把最终回答同步到已存在的检查点。 */
+    public void captureFinalMessages(AgentExecutionContext context, List<Message> messages) {
+        if (!context.checkpointState().exists()) {
+            return;
         }
-        return value;
+        context.checkpointState().capture(messages, context.checkpointState().usage());
+        persistCheckpoint(context, messages, context.checkpointState().usage());
     }
 
-    private List<Integer> selectContiguousPrefix(
-            List<Integer> candidates,
-            Map<Integer, List<TurnRecord>> byTurn,
-            SummaryRecord previous,
-            int maxTokens) {
-        int used = tokens.estimateText(previous == null ? null : previous.content());
-        List<Integer> selected = new ArrayList<>();
-        for (Integer turnId : candidates) {
-            int cost = byTurn.get(turnId).stream()
-                    .mapToInt(turn -> tokens.estimateText(turn.content())).sum();
-            if (!selected.isEmpty() && used + cost > maxTokens) break;
-            selected.add(turnId);
-            used += cost;
+    private int findTailStart(List<Message> messages, int keepRecentTokens) {
+        int start = messages.size();
+        while (start > 0 && tokens.estimate(messages.subList(start - 1, messages.size()), List.of())
+                <= keepRecentTokens) {
+            start--;
         }
-        return selected;
+
+        // ToolResponse 必须和前面的 assistant tool-call 成对保留，不能从 response 中间截断。
+        if (start > 0 && start < messages.size()
+                && messages.get(start) instanceof ToolResponseMessage) {
+            start--;
+        }
+        return start;
     }
 
-    private String buildPrompt(
-            SummaryRecord previous,
-            List<Integer> selected,
-            Map<Integer, List<TurnRecord>> byTurn) {
-        StringBuilder source = new StringBuilder();
-        if (previous != null) {
-            source.append("【已有历史摘要】\n").append(previous.content()).append("\n\n");
-        }
-        for (Integer turnId : selected) {
-            source.append("【Turn ").append(turnId).append("】\n");
-            for (TurnRecord record : byTurn.get(turnId)) {
-                source.append(record.type()).append(": ").append(record.content()).append('\n');
+    private void persistCheckpoint(
+            AgentExecutionContext context,
+            List<Message> messages,
+            ModelCallResult usage) {
+        summaries.upsertCheckpoint(
+                context.conversationId(),
+                context.turnId(),
+                serializeCheckpoint(messages),
+                context.modelConfig().providerKey(),
+                context.modelConfig().modelName(),
+                usage);
+    }
+
+    private String serializeCheckpoint(List<Message> messages) {
+        StringBuilder content = new StringBuilder();
+        content.append("[CONTEXT_CHECKPOINT]\n");
+        for (Message message : messages) {
+            if (message instanceof UserMessage user) {
+                content.append("user: ").append(safeText(user.getText())).append('\n');
+            } else if (message instanceof AssistantMessage assistant) {
+                content.append("assistant: ").append(safeText(assistant.getText())).append('\n');
+                for (AssistantMessage.ToolCall call : assistant.getToolCalls()) {
+                    content.append("assistant_tool_call[")
+                            .append(call.name()).append("]: ")
+                            .append(safeText(call.arguments())).append('\n');
+                }
+            } else if (message instanceof ToolResponseMessage toolResponse) {
+                for (ToolResponseMessage.ToolResponse response : toolResponse.getResponses()) {
+                    content.append("tool[").append(response.name()).append("]: ")
+                            .append(safeText(response.responseData())).append('\n');
+                }
             }
         }
-        return """
-                请把下面的较早会话压缩成一份结构化中文记忆，供后续模型继续对话。
-                必须保留：用户目标、已确认事实、关键决定、重要数据或标识、已完成事项、未解决问题和下一步。
-                不要虚构，不要把已被推翻的猜测写成事实；涉及工具数据时说明数据可能过时，需要时应重新查询。
-                只输出摘要正文，不要输出解释或 JSON。
+        content.append("[/CONTEXT_CHECKPOINT]");
+        return content.toString();
+    }
 
-                %s
-                """.formatted(source);
+    private String safeText(String value) {
+        return value == null ? "" : value;
     }
 
     private String safeMessage(RuntimeException exception) {
         String message = exception.getMessage();
-        if (message == null || message.isBlank()) return exception.getClass().getSimpleName();
+        if (message == null || message.isBlank()) {
+            return exception.getClass().getSimpleName();
+        }
         return message.length() <= 300 ? message : message.substring(0, 300);
     }
 }
