@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jam.agent.auth.persistence.mapper.AppUserMapper">
+
+    <resultMap id="AppUserResult" type="com.jam.agent.auth.persistence.entity.AppUserEntity">
+        <id property="id" column="id"/>
+        <result property="username" column="username"/>
+        <result property="passwordHash" column="password_hash"/>
+        <result property="enabled" column="status"/>
+        <result property="admin" column="is_admin"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <select id="selectByUsername" resultMap="AppUserResult">
+        SELECT id, username, password_hash, status, is_admin, created_at, updated_at
+        FROM app_user
+        WHERE username = #{username}
+    </select>
+
+    <select id="selectAdminPage" resultMap="AppUserResult">
+        SELECT id, username, password_hash, status, is_admin, created_at, updated_at
+        FROM app_user
+        ORDER BY id DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="countAllUsers" resultType="long">
+        SELECT COUNT(*) FROM app_user
+    </select>
+
+    <select id="countAdmins" resultType="long">
+        SELECT COUNT(*) FROM app_user WHERE is_admin = 1 AND status = 1
+    </select>
+
+</mapper>

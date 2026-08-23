@@ -1,6 +1,6 @@
 # 本机环境记录
 
-> 更新时间：2026-08-15。此文件记录 ai-agent-backend 依赖的本机环境，供后续会话恢复上下文。
+> 更新时间：2026-08-16。此文件记录 ai-agent-backend 依赖的本机环境，供后续会话恢复上下文。
 
 ## 运行时
 
@@ -33,6 +33,25 @@
 | Redis | `ai-agent-redis` | `redis:7-alpine` | `127.0.0.1:6379` | `docker_redis_data` |
 
 端口只绑定 `127.0.0.1`，不暴露到局域网。账号和密码默认值见 `docker/.env.example`；实际密码应放在未入库的 `docker/.env` 中。
+
+数据库客户端连接参数：
+
+```text
+Host: 127.0.0.1
+Port: 3306
+Database: ai_agent
+Username: agent
+Password: agent123456
+Driver class: com.mysql.cj.jdbc.Driver
+```
+
+本机 MySQL Connector/J 9.7.0 驱动 JAR：
+
+```text
+E:\soft\mavenAbout\2024_02_18\repository\com\mysql\mysql-connector-j\9.7.0\mysql-connector-j-9.7.0.jar
+```
+
+`E:\图片与视频\LICENSE.txt` 只是 Connector/J 许可手册，不是 IDEA 可加载的驱动文件。
 
 常用命令：
 

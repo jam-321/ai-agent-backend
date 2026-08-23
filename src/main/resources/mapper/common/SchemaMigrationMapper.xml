@@ -1,0 +1,474 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jam.agent.common.database.mapper.SchemaMigrationMapper">
+
+    <select id="countAdminColumn" resultType="int">
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = 'app_user'
+          AND column_name = 'is_admin'
+    </select>
+
+    <update id="addAdminColumn">
+        ALTER TABLE app_user
+        ADD COLUMN is_admin TINYINT NOT NULL DEFAULT 0 AFTER status
+    </update>
+
+    <select id="countAdminAuditTable" resultType="int">
+        SELECT COUNT(*)
+        FROM information_schema.tables
+        WHERE table_schema = DATABASE()
+          AND table_name = 'admin_audit_log'
+    </select>
+
+    <update id="createAdminAuditTable">
+        CREATE TABLE admin_audit_log (
+            id BIGINT NOT NULL AUTO_INCREMENT,
+            user_id BIGINT NOT NULL,
+            username VARCHAR(30) NOT NULL,
+            action VARCHAR(64) NOT NULL,
+            target_type VARCHAR(64) NOT NULL,
+            target_id VARCHAR(128) DEFAULT NULL,
+            request_method VARCHAR(16) DEFAULT NULL,
+            request_uri VARCHAR(500) DEFAULT NULL,
+            result VARCHAR(16) NOT NULL DEFAULT 'SUCCESS',
+            detail TEXT,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY idx_admin_audit_created (created_at, id),
+            KEY idx_admin_audit_user (user_id, created_at),
+            CONSTRAINT fk_admin_audit_user FOREIGN KEY (user_id) REFERENCES app_user (id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    </update>
+
+    <select id="countConversationAgentKeyColumn" resultType="int">
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = 'conversation'
+          AND column_name = 'agent_key'
+    </select>
+
+    <update id="addConversationAgentKeyColumn">
+        ALTER TABLE conversation
+        ADD COLUMN agent_key VARCHAR(32) NOT NULL DEFAULT 'general' AFTER source
+    </update>
+
+    <select id="countAgentConfigTable" resultType="int">
+        SELECT COUNT(*)
+        FROM information_schema.tables
+        WHERE table_schema = DATABASE()
+          AND table_name = 'agent_config'
+    </select>
+
+    <select id="countAgentConfigAdminOnlyColumn" resultType="int">
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = 'agent_config'
+          AND column_name = 'admin_only'
+    </select>
+
+    <update id="addAgentConfigAdminOnlyColumn">
+        ALTER TABLE agent_config
+        ADD COLUMN admin_only TINYINT NOT NULL DEFAULT 0 AFTER agent_key
+    </update>
+
+    <select id="countModelProviderConfigTable" resultType="int">
+        SELECT COUNT(*)
+        FROM information_schema.tables
+        WHERE table_schema = DATABASE()
+          AND table_name = 'model_provider_config'
+    </select>
+
+    <update id="createModelProviderConfigTable">
+        CREATE TABLE model_provider_config (
+            id BIGINT NOT NULL AUTO_INCREMENT,
+            user_id BIGINT DEFAULT NULL,
+            provider_key VARCHAR(64) NOT NULL,
+            provider_name VARCHAR(128) NOT NULL,
+            protocol_type VARCHAR(32) NOT NULL DEFAULT 'OPENAI_CHAT_COMPLETIONS',
+            base_url VARCHAR(500) NOT NULL,
+            endpoint_path VARCHAR(255) DEFAULT NULL,
+            api_key VARCHAR(1000) NOT NULL,
+            models JSON DEFAULT NULL,
+            status TINYINT NOT NULL DEFAULT 1,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY uk_model_provider_key (provider_key),
+            KEY idx_model_provider_user (user_id, status, id),
+            CONSTRAINT fk_model_provider_user FOREIGN KEY (user_id) REFERENCES app_user (id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    </update>
+
+    <insert id="insertBuiltInModelProviders">
+        INSERT IGNORE INTO model_provider_config (
+            user_id, provider_key, provider_name, protocol_type, base_url,
+            endpoint_path, api_key, models, status)
+        VALUES
+            (
+                NULL, 'deepseek', 'DeepSeek', 'OPENAI_CHAT_COMPLETIONS',
+                'https://api.deepseek.com', '/v1/chat/completions',
+                'env:DEEPSEEK_API_KEY',
+                JSON_ARRAY(
+                    JSON_OBJECT('modelName', 'deepseek-v4-flash', 'displayName', 'DeepSeek V4 Flash'),
+                    JSON_OBJECT('modelName', 'deepseek-v4-pro', 'displayName', 'DeepSeek V4 Pro'),
+                    JSON_OBJECT('modelName', 'deepseek-v4-flash-vision-exp', 'displayName', 'DeepSeek V4 Flash Vision', 'supportsImageInput', true, 'supportsTools', true)),
+                1
+            ),
+            (
+                NULL, 'zhipu-glm', 'Zhipu GLM', 'OPENAI_CHAT_COMPLETIONS',
+                'https://open.bigmodel.cn/api/coding/paas/v4', '/chat/completions',
+                'env:ZHIPU_API_KEY',
+                JSON_ARRAY(JSON_OBJECT('modelName', 'glm-5.3', 'displayName', 'GLM 5.3')),
+                1
+            ),
+            (
+                NULL, 'relay-proaiapi', 'proaiapi', 'OPENAI_RESPONSES',
+                'https://proaiapi.tech/v1', '/responses',
+                'env:PROAIAPI_API_KEY',
+                JSON_ARRAY(JSON_OBJECT('modelName', 'gpt-5.6-luna', 'displayName', 'GPT 5.6 Luna')),
+                1
+            ),
+            (
+                NULL, 'relay-ddshub', '呆呆兽', 'OPENAI_RESPONSES',
+                'https://www.ddshub.cc', '/responses',
+                'env:DDSHUB_API_KEY',
+                JSON_ARRAY(JSON_OBJECT('modelName', 'gpt-5.6-sol', 'displayName', 'GPT 5.6 Sol')),
+                1
+            )
+    </insert>
+
+    <select id="countModelProviderCatalogColumn" resultType="int">
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = 'model_provider_config'
+          AND column_name = 'models'
+    </select>
+
+    <select id="countModelProviderEndpointColumn" resultType="int">
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = 'model_provider_config'
+          AND column_name = 'endpoint_path'
+    </select>
+
+    <select id="countModelProviderLegacyPathColumn" resultType="int">
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = 'model_provider_config'
+          AND column_name = 'chat_completions_path'
+    </select>
+
+    <update id="renameModelProviderEndpointColumn">
+        ALTER TABLE model_provider_config
+        CHANGE COLUMN chat_completions_path endpoint_path VARCHAR(255) DEFAULT NULL
+    </update>
+
+    <update id="addModelProviderEndpointColumn">
+        ALTER TABLE model_provider_config
+        ADD COLUMN endpoint_path VARCHAR(255) DEFAULT NULL AFTER base_url
+    </update>
+
+    <update id="addModelProviderCatalogColumn">
+        ALTER TABLE model_provider_config
+        ADD COLUMN models JSON DEFAULT NULL AFTER api_key
+    </update>
+
+    <update id="updateDefaultProviderCatalog">
+        UPDATE model_provider_config
+        SET endpoint_path = '/v1/chat/completions',
+            models = JSON_ARRAY(
+                JSON_OBJECT('modelName', 'deepseek-v4-flash', 'displayName', 'DeepSeek V4 Flash'),
+                JSON_OBJECT('modelName', 'deepseek-v4-pro', 'displayName', 'DeepSeek V4 Pro'),
+                JSON_OBJECT('modelName', 'deepseek-v4-flash-vision-exp', 'displayName', 'DeepSeek V4 Flash Vision', 'supportsImageInput', true, 'supportsTools', true))
+        WHERE provider_key = 'deepseek'
+          AND models IS NULL
+    </update>
+
+    <update id="updateBuiltInProviderProtocols">
+        UPDATE model_provider_config
+        SET protocol_type = CASE provider_key
+                WHEN 'deepseek' THEN 'OPENAI_CHAT_COMPLETIONS'
+                WHEN 'zhipu-glm' THEN 'OPENAI_CHAT_COMPLETIONS'
+                ELSE 'OPENAI_RESPONSES'
+            END,
+            endpoint_path = CASE provider_key
+                WHEN 'deepseek' THEN '/v1/chat/completions'
+                WHEN 'zhipu-glm' THEN '/chat/completions'
+                ELSE '/responses'
+            END
+        WHERE provider_key IN ('deepseek', 'zhipu-glm', 'relay-proaiapi', 'relay-ddshub')
+    </update>
+
+    <select id="countAgentConfigEnabledToolsColumn" resultType="int">
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = 'agent_config'
+          AND column_name = 'enabled_tools'
+    </select>
+
+    <select id="countAgentConfigExecutionTypeColumn" resultType="int">
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = 'agent_config'
+          AND column_name = 'execution_type'
+    </select>
+
+    <select id="countAgentConfigModelProviderColumn" resultType="int">
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = 'agent_config'
+          AND column_name = 'model_provider_key'
+    </select>
+
+    <update id="addAgentConfigModelColumns">
+        ALTER TABLE agent_config
+        ADD COLUMN model_provider_key VARCHAR(64) NOT NULL DEFAULT 'deepseek' AFTER magic_params,
+        ADD COLUMN model_name VARCHAR(128) NOT NULL DEFAULT 'deepseek-v4-flash' AFTER model_provider_key,
+        ADD COLUMN model_temperature DECIMAL(4,3) NOT NULL DEFAULT 0.700 AFTER model_name,
+        ADD CONSTRAINT fk_agent_config_model_provider
+            FOREIGN KEY (model_provider_key) REFERENCES model_provider_config (provider_key)
+    </update>
+
+    <select id="countConversationModelProviderColumn" resultType="int">
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = 'conversation'
+          AND column_name = 'model_provider_key'
+    </select>
+
+    <update id="addConversationModelColumns">
+        ALTER TABLE conversation
+        ADD COLUMN model_provider_key VARCHAR(64) DEFAULT NULL AFTER agent_key,
+        ADD COLUMN model_name VARCHAR(128) DEFAULT NULL AFTER model_provider_key
+    </update>
+
+    <select id="countConversationTurnModelColumn" resultType="int">
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = 'conversation_turn'
+          AND column_name = 'model_provider_key'
+    </select>
+
+    <update id="addConversationTurnModelColumns">
+        ALTER TABLE conversation_turn
+        ADD COLUMN agent_key VARCHAR(32) DEFAULT NULL AFTER trace_id,
+        ADD COLUMN model_provider_key VARCHAR(64) DEFAULT NULL AFTER agent_key,
+        ADD COLUMN model_name VARCHAR(128) DEFAULT NULL AFTER model_provider_key,
+        ADD COLUMN protocol_type VARCHAR(32) DEFAULT NULL AFTER model_name
+    </update>
+
+    <update id="addAgentConfigExecutionColumns">
+        ALTER TABLE agent_config
+        ADD COLUMN execution_type VARCHAR(32) NOT NULL DEFAULT 'LOOP' AFTER agent_key,
+        ADD COLUMN execution_key VARCHAR(64) DEFAULT NULL AFTER execution_type
+    </update>
+
+    <update id="addAgentConfigEnabledToolsColumn">
+        ALTER TABLE agent_config
+        ADD COLUMN enabled_tools JSON DEFAULT NULL AFTER enabled_plugins
+    </update>
+
+    <update id="createAgentConfigTable">
+        CREATE TABLE agent_config (
+            id BIGINT NOT NULL AUTO_INCREMENT,
+            agent_key VARCHAR(32) NOT NULL,
+            admin_only TINYINT NOT NULL DEFAULT 0,
+            execution_type VARCHAR(32) NOT NULL DEFAULT 'LOOP',
+            execution_key VARCHAR(64) DEFAULT NULL,
+            system_prompt TEXT,
+            enabled_plugins JSON,
+            enabled_tools JSON DEFAULT NULL,
+            magic_params JSON,
+            model_provider_key VARCHAR(64) NOT NULL DEFAULT 'deepseek',
+            model_name VARCHAR(128) NOT NULL DEFAULT 'deepseek-v4-flash',
+            model_temperature DECIMAL(4,3) NOT NULL DEFAULT 0.700,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY uk_agent_config_key (agent_key),
+            CONSTRAINT fk_agent_config_model_provider
+                FOREIGN KEY (model_provider_key) REFERENCES model_provider_config (provider_key)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    </update>
+
+    <select id="countAgentConfigImageHistoryModeColumn" resultType="int">
+        SELECT COUNT(*) FROM information_schema.columns
+        WHERE table_schema = DATABASE() AND table_name = 'agent_config'
+          AND column_name = 'image_history_mode'
+    </select>
+
+    <update id="addAgentConfigImageHistoryModeColumn">
+        ALTER TABLE agent_config
+        ADD COLUMN image_history_mode VARCHAR(32) NOT NULL DEFAULT 'SUMMARY_TOOL' AFTER magic_params
+    </update>
+
+    <update id="updateDefaultAgentImageHistoryMode">
+        UPDATE agent_config
+        SET image_history_mode = 'FULL_IMAGE_HISTORY'
+        WHERE agent_key = 'general'
+          AND image_history_mode = 'SUMMARY_TOOL'
+    </update>
+
+    <select id="countConversationNodeAttachmentColumn" resultType="int">
+        SELECT COUNT(*) FROM information_schema.columns
+        WHERE table_schema = DATABASE() AND table_name = 'conversation_node'
+          AND column_name = 'attachment_id'
+    </select>
+
+    <update id="addConversationNodeAttachmentColumn">
+        ALTER TABLE conversation_node
+        ADD COLUMN attachment_id BIGINT DEFAULT NULL AFTER content
+    </update>
+
+    <select id="countMediaAssetTable" resultType="int">
+        SELECT COUNT(*) FROM information_schema.tables
+        WHERE table_schema = DATABASE() AND table_name = 'media_asset'
+    </select>
+
+    <update id="createMediaAssetTable">
+        CREATE TABLE media_asset (
+            id BIGINT NOT NULL AUTO_INCREMENT,
+            owner_id BIGINT NOT NULL,
+            asset_type VARCHAR(16) NOT NULL DEFAULT 'IMAGE',
+            storage_key VARCHAR(500) NOT NULL,
+            original_filename VARCHAR(255),
+            content_type VARCHAR(128) NOT NULL,
+            file_size BIGINT NOT NULL,
+            sha256 VARCHAR(64) NOT NULL,
+            width INT DEFAULT NULL,
+            height INT DEFAULT NULL,
+            status VARCHAR(16) NOT NULL DEFAULT 'PENDING',
+            summary TEXT DEFAULT NULL,
+            summary_model VARCHAR(128) DEFAULT NULL,
+            summary_created_at DATETIME DEFAULT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            deleted_at DATETIME DEFAULT NULL,
+            PRIMARY KEY (id), KEY idx_media_asset_owner (owner_id, status, id),
+            UNIQUE KEY uk_media_asset_sha256 (owner_id, sha256),
+            CONSTRAINT fk_media_asset_owner FOREIGN KEY (owner_id) REFERENCES app_user (id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    </update>
+
+    <select id="countTurnAttachmentTable" resultType="int">
+        SELECT COUNT(*) FROM information_schema.tables
+        WHERE table_schema = DATABASE() AND table_name = 'conversation_turn_attachment'
+    </select>
+
+    <update id="createTurnAttachmentTable">
+        CREATE TABLE conversation_turn_attachment (
+            id BIGINT NOT NULL AUTO_INCREMENT,
+            conversation_id BIGINT NOT NULL,
+            turn_id INT NOT NULL,
+            asset_id BIGINT NOT NULL,
+            sort_order INT NOT NULL DEFAULT 0,
+            detail VARCHAR(16) DEFAULT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id), UNIQUE KEY uk_turn_attachment (conversation_id, turn_id, asset_id),
+            KEY idx_turn_attachment_asset (asset_id),
+            CONSTRAINT fk_turn_attachment_conversation FOREIGN KEY (conversation_id) REFERENCES conversation (id),
+            CONSTRAINT fk_turn_attachment_asset FOREIGN KEY (asset_id) REFERENCES media_asset (id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    </update>
+
+    <update id="updateBuiltInAgentTools">
+        UPDATE agent_config
+        SET enabled_tools = JSON_ARRAY_APPEND(
+                COALESCE(enabled_tools, JSON_ARRAY()),
+                '$', 'query_image_summary')
+        WHERE agent_key IN ('general', 'with_time', 'time_workflow')
+          AND JSON_SEARCH(COALESCE(enabled_tools, JSON_ARRAY()), 'one', 'query_image_summary') IS NULL
+    </update>
+
+    <update id="removeUserSessionDetailTool">
+        UPDATE agent_config
+        SET enabled_tools = JSON_REMOVE(
+                enabled_tools,
+                JSON_UNQUOTE(JSON_SEARCH(enabled_tools, 'one', 'query_session_detail')))
+        WHERE agent_key IN ('general', 'with_time', 'time_workflow')
+          AND enabled_tools IS NOT NULL
+          AND JSON_SEARCH(enabled_tools, 'one', 'query_session_detail') IS NOT NULL
+    </update>
+
+    <update id="removeConversationNodeTool">
+        UPDATE agent_config
+        SET enabled_tools = JSON_REMOVE(
+                enabled_tools,
+                JSON_UNQUOTE(JSON_SEARCH(enabled_tools, 'one', 'query_conversation_node')))
+        WHERE agent_key IN ('general', 'with_time', 'time_workflow', 'system_admin')
+          AND enabled_tools IS NOT NULL
+          AND JSON_SEARCH(enabled_tools, 'one', 'query_conversation_node') IS NOT NULL
+    </update>
+
+    <select id="countConversationNodeOutputTable" resultType="int">
+        SELECT COUNT(*) FROM information_schema.tables
+        WHERE table_schema = DATABASE() AND table_name = 'conversation_node_output'
+    </select>
+
+    <update id="createConversationNodeOutputTable">
+        CREATE TABLE conversation_node_output (
+            id BIGINT NOT NULL AUTO_INCREMENT,
+            conversation_id BIGINT NOT NULL,
+            turn_id INT NOT NULL,
+            node_name VARCHAR(128) NOT NULL,
+            aggr_key VARCHAR(128) NOT NULL,
+            trace_id VARCHAR(64) NOT NULL,
+            type VARCHAR(32) NOT NULL,
+            content LONGTEXT NOT NULL,
+            content_tokens INT DEFAULT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY uk_node_output_call_type (conversation_id, turn_id, aggr_key, type),
+            KEY idx_node_output_trace (trace_id, id),
+            CONSTRAINT fk_node_output_conversation
+                FOREIGN KEY (conversation_id) REFERENCES conversation (id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    </update>
+
+    <select id="countConversationMemorySummaryTable" resultType="int">
+        SELECT COUNT(*) FROM information_schema.tables
+        WHERE table_schema = DATABASE() AND table_name = 'conversation_memory_summary'
+    </select>
+
+    <update id="createConversationMemorySummaryTable">
+        CREATE TABLE conversation_memory_summary (
+            id BIGINT NOT NULL AUTO_INCREMENT,
+            conversation_id BIGINT NOT NULL,
+            covered_from_turn_id INT NOT NULL,
+            covered_until_turn_id INT NOT NULL,
+            content LONGTEXT NOT NULL,
+            model_provider_key VARCHAR(64) DEFAULT NULL,
+            model_name VARCHAR(128) DEFAULT NULL,
+            input_tokens BIGINT DEFAULT NULL,
+            output_tokens BIGINT DEFAULT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY uk_memory_summary_coverage (conversation_id, covered_until_turn_id),
+            KEY idx_memory_summary_latest (conversation_id, id),
+            CONSTRAINT fk_memory_summary_conversation
+                FOREIGN KEY (conversation_id) REFERENCES conversation (id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    </update>
+
+    <update id="appendToolToBuiltInAgents">
+        UPDATE agent_config
+        SET enabled_tools = JSON_ARRAY_APPEND(
+                COALESCE(enabled_tools, JSON_ARRAY()), '$', #{toolName})
+        WHERE agent_key IN ('general', 'with_time', 'time_workflow')
+          AND JSON_SEARCH(COALESCE(enabled_tools, JSON_ARRAY()), 'one', #{toolName}) IS NULL
+    </update>
+
+</mapper>

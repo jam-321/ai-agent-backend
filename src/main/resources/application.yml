@@ -9,6 +9,10 @@ server:
         same-site: lax
 
 spring:
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 50MB
   application:
     name: ai-agent-backend
   datasource:
@@ -29,17 +33,74 @@ spring:
     store-type: redis
     timeout: 7d
     redis:
-      namespace: ai-agent:session
+      # v2 invalidates sessions serialized before the auth package migration.
+      namespace: ai-agent:session:v2
+
   ai:
+    retry:
+      max-attempts: 1
     openai:
       # OpenAI 兼容协议：DeepSeek（国内可直连），可换成通义/OpenAI 等
       base-url: https://api.deepseek.com
       api-key: ${DEEPSEEK_API_KEY:${AI_API_KEY:sk-dummy-not-configured}}
       chat:
         options:
-          model: deepseek-chat
+          model: deepseek-v4-flash
           temperature: 0.7
+
+app:
+  storage:
+    minio:
+      endpoint: ${MINIO_ENDPOINT:http://127.0.0.1:9000}
+      access-key: ${MINIO_ACCESS_KEY:minioadmin}
+      secret-key: ${MINIO_SECRET_KEY:minioadmin}
+      bucket: ${MINIO_BUCKET:ai-agent}
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
 
 logging:
   level:
     com.jam.agent: info
+
+agent:
+  budget:
+    max-tokens-per-turn: 2000000
+    max-context-tokens: 200000
+    max-output-tokens: 8192
+    safety-margin-tokens: 4096
+    max-user-input-tokens: 32000
+  loop:
+    max-attempts: 2
+    max-tool-rounds: 40
+    max-tools-per-round: 8
+    max-run-duration: 5m
+    max-degenerate-retries: 2
+    max-same-tool-signature: 3
+  memory:
+    max-history-turns: 50
+    max-tool-pairs-per-turn: 3
+    max-tool-args-preview-chars: 300
+    max-tool-result-preview-chars: 500
+    max-history-tokens: 160000
+    compaction-enabled: true
+    compaction-trigger-tokens: 160000
+    keep-recent-tokens: 30000
+    max-tool-result-tokens: 5000
+    compacted-tool-preview-chars: 1200
+  progress:
+    max-tool-args-preview-chars: 1000
+    max-tool-result-preview-chars: 2000
+  lock:
+    ttl: 10m
+  workflow:
+    max-steps: 32
+  executor:
+    run-core-size: 2
+    run-max-size: 4
+    run-queue-capacity: 100
+    tool-core-size: 4
+    tool-max-size: 8
+    tool-queue-capacity: 100

@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jam.agent.monitoring.persistence.mapper.AdminMonitorMapper">
+
+    <sql id="ConversationSummaryColumns">
+        c.id,
+        c.user_id,
+        u.username,
+        c.title,
+        (SELECT COUNT(DISTINCT t.turn_id)
+         FROM conversation_turn t
+         WHERE t.conversation_id = c.id) AS turn_count,
+        (SELECT COUNT(*)
+         FROM conversation_node n
+         WHERE n.conversation_id = c.id) AS node_count,
+        (SELECT COUNT(*)
+         FROM conversation_node n
+         WHERE n.conversation_id = c.id
+           AND n.type = 'MODEL_CALL' AND n.status = 'SUCCESS') AS model_call_count,
+        (SELECT COALESCE(SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(n.content, '$.cachedInputTokens')) AS UNSIGNED)), 0)
+         FROM conversation_node n
+         WHERE n.conversation_id = c.id AND n.type = 'MODEL_CALL' AND n.status = 'SUCCESS'
+           AND JSON_VALID(n.content) AND JSON_CONTAINS_PATH(n.content, 'one', '$.cachedInputTokens')) AS cached_input_tokens,
+        (SELECT COALESCE(SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(n.content, '$.cacheMissInputTokens')) AS UNSIGNED)), 0)
+         FROM conversation_node n
+         WHERE n.conversation_id = c.id AND n.type = 'MODEL_CALL' AND n.status = 'SUCCESS'
+           AND JSON_VALID(n.content) AND JSON_CONTAINS_PATH(n.content, 'one', '$.cachedInputTokens')) AS cache_miss_input_tokens,
+        (SELECT COUNT(*)
+         FROM conversation_node n
+         WHERE n.conversation_id = c.id AND n.type = 'MODEL_CALL' AND n.status = 'SUCCESS'
+           AND JSON_VALID(n.content) AND JSON_CONTAINS_PATH(n.content, 'one', '$.cachedInputTokens')) AS cache_usage_reported_calls,
+        (SELECT COALESCE(SUM(
+             COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(n.content, '$.totalTokens')) AS UNSIGNED),
+                      CAST(JSON_UNQUOTE(JSON_EXTRACT(n.content, '$.inputTokens')) AS UNSIGNED), 0)
+             + CASE WHEN JSON_EXTRACT(n.content, '$.totalTokens') IS NULL
+                    THEN COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(n.content, '$.outputTokens')) AS UNSIGNED), 0)
+                    ELSE 0 END), 0)
+         FROM conversation_node n
+         WHERE n.conversation_id = c.id
+           AND n.type = 'MODEL_CALL' AND n.status = 'SUCCESS'
+           AND JSON_VALID(n.content)) AS total_tokens,
+        CASE
+            WHEN NOT EXISTS (
+                SELECT 1
+                FROM conversation_turn latest
+                WHERE latest.conversation_id = c.id
+                  AND latest.turn_id = (
+                      SELECT MAX(t2.turn_id)
+                      FROM conversation_turn t2
+                      WHERE t2.conversation_id = c.id
+                  )
+                  AND latest.type = 'assistant'
+            ) THEN 'REASONING'
+            WHEN EXISTS (
+                SELECT 1
+                FROM conversation_turn latest
+                WHERE latest.conversation_id = c.id
+                  AND latest.turn_id = (
+                      SELECT MAX(t2.turn_id)
+                      FROM conversation_turn t2
+                      WHERE t2.conversation_id = c.id
+                  )
+                  AND latest.type = 'assistant'
+                  AND latest.error_message IS NOT NULL
+            ) THEN 'ERROR'
+            ELSE 'COMPLETE'
+        END AS latest_status,
+        c.created_at,
+        c.updated_at
+    </sql>
+
+    <select id="selectOverview" resultType="map">
+        SELECT
+            (SELECT COUNT(*) FROM app_user) AS user_count,
+            (SELECT COUNT(*) FROM app_user WHERE status = 1) AS enabled_user_count,
+            (SELECT COUNT(*) FROM conversation WHERE is_deleted = 0) AS conversation_count,
+            (SELECT COUNT(*)
+             FROM conversation_turn t
+             JOIN conversation c ON c.id = t.conversation_id
+             WHERE c.is_deleted = 0) AS turn_count,
+            (SELECT COUNT(*)
+             FROM conversation_node n
+             JOIN conversation c ON c.id = n.conversation_id
+             WHERE c.is_deleted = 0) AS node_count,
+            (SELECT COUNT(*)
+             FROM conversation_node n
+             JOIN conversation c ON c.id = n.conversation_id
+             WHERE c.is_deleted = 0
+               AND n.type = 'GENERATE'
+               AND n.status = 'COMPLETE') AS completed_run_count,
+            (SELECT COUNT(*)
+             FROM conversation_node n
+             JOIN conversation c ON c.id = n.conversation_id
+             WHERE c.is_deleted = 0
+               AND n.type = 'GENERATE'
+               AND n.status = 'ERROR') AS failed_run_count,
+            (SELECT COUNT(*)
+             FROM conversation_turn user_turn
+             JOIN conversation c ON c.id = user_turn.conversation_id
+             WHERE c.is_deleted = 0
+               AND user_turn.type = 'user'
+               AND NOT EXISTS (
+                   SELECT 1
+                   FROM conversation_turn assistant_turn
+                   WHERE assistant_turn.conversation_id = user_turn.conversation_id
+                     AND assistant_turn.turn_id = user_turn.turn_id
+                     AND assistant_turn.type = 'assistant'
+               )) AS reasoning_run_count,
+            (SELECT COUNT(*)
+             FROM conversation_node n
+             JOIN conversation c ON c.id = n.conversation_id
+             WHERE c.is_deleted = 0
+               AND n.type = 'TOOL_CALL'
+               AND n.status = 'START') AS tool_call_count,
+            (SELECT COUNT(*)
+             FROM conversation_node n
+             JOIN conversation c ON c.id = n.conversation_id
+             WHERE c.is_deleted = 0
+               AND n.type = 'TOOL_CALL'
+               AND n.status = 'SUCCESS') AS tool_success_count,
+            (SELECT COUNT(*)
+             FROM conversation_node n
+             JOIN conversation c ON c.id = n.conversation_id
+             WHERE c.is_deleted = 0
+               AND n.type = 'TOOL_CALL'
+               AND n.status = 'ERROR') AS tool_error_count,
+            (SELECT COUNT(*) FROM conversation_node n
+             JOIN conversation c ON c.id = n.conversation_id
+             WHERE c.is_deleted = 0 AND n.type = 'MODEL_CALL' AND n.status = 'SUCCESS') AS model_call_count,
+            (SELECT COALESCE(SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(n.content, '$.inputTokens')) AS UNSIGNED)), 0)
+             FROM conversation_node n JOIN conversation c ON c.id = n.conversation_id
+             WHERE c.is_deleted = 0 AND n.type = 'MODEL_CALL' AND n.status = 'SUCCESS' AND JSON_VALID(n.content)) AS input_tokens,
+            (SELECT COALESCE(SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(n.content, '$.outputTokens')) AS UNSIGNED)), 0)
+             FROM conversation_node n JOIN conversation c ON c.id = n.conversation_id
+             WHERE c.is_deleted = 0 AND n.type = 'MODEL_CALL' AND n.status = 'SUCCESS' AND JSON_VALID(n.content)) AS output_tokens,
+            (SELECT COALESCE(SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(n.content, '$.cachedInputTokens')) AS UNSIGNED)), 0)
+             FROM conversation_node n JOIN conversation c ON c.id = n.conversation_id
+             WHERE c.is_deleted = 0 AND n.type = 'MODEL_CALL' AND n.status = 'SUCCESS' AND JSON_VALID(n.content)) AS cached_input_tokens,
+            (SELECT COALESCE(SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(n.content, '$.cacheMissInputTokens')) AS UNSIGNED)), 0)
+             FROM conversation_node n JOIN conversation c ON c.id = n.conversation_id
+             WHERE c.is_deleted = 0 AND n.type = 'MODEL_CALL' AND n.status = 'SUCCESS'
+               AND JSON_VALID(n.content) AND JSON_CONTAINS_PATH(n.content, 'one', '$.cachedInputTokens')) AS cache_miss_input_tokens,
+            (SELECT COUNT(*)
+             FROM conversation_node n JOIN conversation c ON c.id = n.conversation_id
+             WHERE c.is_deleted = 0 AND n.type = 'MODEL_CALL' AND n.status = 'SUCCESS'
+               AND JSON_VALID(n.content) AND JSON_CONTAINS_PATH(n.content, 'one', '$.cachedInputTokens')) AS cache_usage_reported_calls,
+            (SELECT COALESCE(SUM(
+                 COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(n.content, '$.totalTokens')) AS UNSIGNED),
+                          CAST(JSON_UNQUOTE(JSON_EXTRACT(n.content, '$.inputTokens')) AS UNSIGNED), 0)
+                 + CASE WHEN JSON_EXTRACT(n.content, '$.totalTokens') IS NULL
+                        THEN COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(n.content, '$.outputTokens')) AS UNSIGNED), 0)
+                        ELSE 0 END), 0)
+             FROM conversation_node n JOIN conversation c ON c.id = n.conversation_id
+             WHERE c.is_deleted = 0 AND n.type = 'MODEL_CALL' AND n.status = 'SUCCESS' AND JSON_VALID(n.content)) AS total_tokens
+    </select>
+
+    <sql id="ConversationWhere">
+        WHERE c.is_deleted = 0
+        <if test="search != null and search != ''">
+            AND (u.username LIKE CONCAT('%', #{search}, '%')
+              OR c.title LIKE CONCAT('%', #{search}, '%'))
+        </if>
+    </sql>
+
+    <select id="countConversations" resultType="long">
+        SELECT COUNT(*)
+        FROM conversation c
+        JOIN app_user u ON u.id = c.user_id
+        <include refid="ConversationWhere"/>
+    </select>
+
+    <select id="selectConversations" resultType="map">
+        SELECT <include refid="ConversationSummaryColumns"/>
+        FROM conversation c
+        JOIN app_user u ON u.id = c.user_id
+        <include refid="ConversationWhere"/>
+        ORDER BY c.updated_at DESC, c.id DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="selectConversation" resultType="map">
+        SELECT <include refid="ConversationSummaryColumns"/>
+        FROM conversation c
+        JOIN app_user u ON u.id = c.user_id
+        WHERE c.id = #{conversationId}
+          AND c.is_deleted = 0
+    </select>
+
+    <select id="selectConversationIdByTrace" resultType="long">
+        SELECT conversation_id
+        FROM conversation_turn
+        WHERE trace_id = #{traceId}
+        UNION ALL
+        SELECT conversation_id
+        FROM conversation_node
+        WHERE trace_id = #{traceId}
+        LIMIT 1
+    </select>
+
+    <select id="selectTurns" resultType="map">
+        SELECT id, turn_id, type, content, is_hidden, error_message,
+               trace_id, agent_key, model_provider_key, model_name, protocol_type,
+               created_at, updated_at
+        FROM conversation_turn
+        WHERE conversation_id = #{conversationId}
+        ORDER BY turn_id, id
+    </select>
+
+    <select id="selectNodes" resultType="map">
+        SELECT id, turn_id, trace_id, attempt_no, round_no, call_index,
+               node_id, node_name, aggr_key, type, status, content,
+               created_at, updated_at
+        FROM conversation_node
+        WHERE conversation_id = #{conversationId}
+        ORDER BY turn_id, id
+    </select>
+
+    <select id="selectToolStatistics" resultType="map">
+        SELECT
+            starts.node_name AS tool_name,
+            COUNT(*) AS call_count,
+            SUM(CASE WHEN terminal.status = 'SUCCESS' THEN 1 ELSE 0 END) AS success_count,
+            SUM(CASE WHEN terminal.status = 'ERROR' THEN 1 ELSE 0 END) AS error_count,
+            SUM(CASE WHEN terminal.id IS NULL THEN 1 ELSE 0 END) AS running_count,
+            ROUND(AVG(CASE WHEN terminal.id IS NOT NULL
+                THEN TIMESTAMPDIFF(MICROSECOND, starts.created_at, terminal.created_at) / 1000
+                ELSE NULL END)) AS average_duration_ms
+        FROM conversation_node starts
+        JOIN conversation c
+          ON c.id = starts.conversation_id
+         AND c.is_deleted = 0
+        LEFT JOIN conversation_node terminal
+          ON terminal.conversation_id = starts.conversation_id
+         AND terminal.turn_id = starts.turn_id
+         AND terminal.aggr_key = starts.aggr_key
+         AND terminal.type = 'TOOL_CALL'
+         AND terminal.status IN ('SUCCESS', 'ERROR')
+         AND terminal.id = (
+             SELECT MAX(latest.id)
+             FROM conversation_node latest
+             WHERE latest.conversation_id = starts.conversation_id
+               AND latest.turn_id = starts.turn_id
+               AND latest.aggr_key = starts.aggr_key
+               AND latest.type = 'TOOL_CALL'
+               AND latest.status IN ('SUCCESS', 'ERROR')
+         )
+        WHERE starts.type = 'TOOL_CALL'
+          AND starts.status = 'START'
+        GROUP BY starts.node_name
+        ORDER BY call_count DESC, starts.node_name
+    </select>
+
+</mapper>
