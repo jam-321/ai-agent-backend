@@ -77,7 +77,11 @@ public class OpenAiResponsesAdapter implements ModelProtocolAdapter {
         JsonNode response = client.post()
                 .uri(connection.endpointUrl())
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(buildRequest(messages, tools, config.modelName()))
+                .body(buildRequest(
+                        messages,
+                        tools,
+                        config.modelName(),
+                        context.budgetConfig().maxOutputTokens()))
                 .retrieve()
                 .body(JsonNode.class);
         return extractResult(response);
@@ -87,8 +91,17 @@ public class OpenAiResponsesAdapter implements ModelProtocolAdapter {
             List<Message> messages,
             List<ToolCallback> tools,
             String modelName) {
+        return buildRequest(messages, tools, modelName, 4096);
+    }
+
+    ObjectNode buildRequest(
+            List<Message> messages,
+            List<ToolCallback> tools,
+            String modelName,
+            int maxOutputTokens) {
         ObjectNode request = objectMapper.createObjectNode();
         request.put("model", modelName);
+        request.put("max_output_tokens", maxOutputTokens);
         request.put("store", false);
         request.put("parallel_tool_calls", true);
 
@@ -161,12 +174,23 @@ public class OpenAiResponsesAdapter implements ModelProtocolAdapter {
                 .toolCalls(toolCalls)
                 .build();
         JsonNode usage = response.path("usage");
+        Long inputTokens = nullableLong(usage.get("input_tokens"));
+        Long outputTokens = nullableLong(usage.get("output_tokens"));
+        Long cachedInputTokens = nullableLong(
+                usage.path("input_tokens_details").get("cached_tokens"));
         return new ModelCallResult(
                 message,
                 response.path("id").asText(null),
                 response.path("model").asText(null),
-                nullableLong(usage.get("input_tokens")),
-                nullableLong(usage.get("output_tokens")));
+                inputTokens,
+                outputTokens,
+                cachedInputTokens,
+                cacheMiss(inputTokens, cachedInputTokens),
+                null,
+                nullableLong(usage.path("output_tokens_details").get("reasoning_tokens")),
+                nullableLong(usage.get("total_tokens")) == null
+                        ? sum(inputTokens, outputTokens)
+                        : nullableLong(usage.get("total_tokens")));
     }
 
     private RestClient createClient(ConnectionKey connection) {
@@ -293,6 +317,16 @@ public class OpenAiResponsesAdapter implements ModelProtocolAdapter {
 
     private Long nullableLong(JsonNode value) {
         return value == null || !value.isNumber() ? null : value.longValue();
+    }
+
+    private Long sum(Long first, Long second) {
+        return first == null && second == null
+                ? null
+                : (first == null ? 0 : first) + (second == null ? 0 : second);
+    }
+
+    private Long cacheMiss(Long input, Long cached) {
+        return input == null || cached == null ? null : Math.max(0, input - cached);
     }
 
     private String normalizeBaseUrl(String baseUrl) {

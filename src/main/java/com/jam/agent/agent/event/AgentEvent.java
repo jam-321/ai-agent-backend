@@ -83,6 +83,27 @@ public record AgentEvent(
         return base("generate", execution, attemptNo, null, null, "generate", null, content, error);
     }
 
+    public static AgentEvent modelCallStart(
+            AgentExecutionContext execution,
+            int attemptNo,
+            Integer roundNo,
+            String callId,
+            String content) {
+        return base("model_call_start", execution, attemptNo, roundNo,
+                null, "model", callId, content, false);
+    }
+
+    public static AgentEvent modelCallEnd(
+            AgentExecutionContext execution,
+            int attemptNo,
+            Integer roundNo,
+            String callId,
+            String content,
+            boolean error) {
+        return base("model_call_end", execution, attemptNo, roundNo,
+                null, "model", callId, content, error);
+    }
+
     public static AgentEvent workflowStepStart(
             AgentExecutionContext execution,
             int attemptNo,

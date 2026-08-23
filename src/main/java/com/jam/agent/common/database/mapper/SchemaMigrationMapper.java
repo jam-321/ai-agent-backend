@@ -85,4 +85,14 @@ public interface SchemaMigrationMapper {
     void updateBuiltInAgentTools();
 
     void removeUserSessionDetailTool();
+
+    int countConversationNodeOutputTable();
+
+    void createConversationNodeOutputTable();
+
+    int countConversationMemorySummaryTable();
+
+    void createConversationMemorySummaryTable();
+
+    void appendToolToBuiltInAgents(String toolName);
 }

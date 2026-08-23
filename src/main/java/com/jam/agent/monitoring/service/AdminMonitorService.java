@@ -11,6 +11,9 @@ import com.jam.agent.monitoring.dto.AdminNodeResponse;
 import com.jam.agent.monitoring.dto.AdminToolCallResponse;
 import com.jam.agent.monitoring.dto.AdminTurnResponse;
 import com.jam.agent.monitoring.dto.AdminTurnTreeResponse;
+import com.jam.agent.monitoring.dto.AdminTokenUsageResponse;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import com.jam.agent.monitoring.persistence.repository.AdminMonitorRepository;
@@ -24,12 +27,15 @@ public class AdminMonitorService {
 
     private final AdminMonitorRepository repository;
     private final ConversationTurnAttachmentRepository attachments;
+    private final ObjectMapper objectMapper;
 
     public AdminMonitorService(
             AdminMonitorRepository repository,
-            ConversationTurnAttachmentRepository attachments) {
+            ConversationTurnAttachmentRepository attachments,
+            ObjectMapper objectMapper) {
         this.repository = repository;
         this.attachments = attachments;
+        this.objectMapper = objectMapper;
     }
 
     public AdminOverviewResponse overview() {
@@ -179,7 +185,54 @@ public class AdminMonitorService {
                         group.getKey(), start.nodeName(), end == null ? start.status() : end.status(),
                         start.content(), end == null ? null : end.content(), events);
             }).toList();
-            return new AdminTurnTreeResponse(entry.getKey(), user, assistant, calls);
+            return new AdminTurnTreeResponse(
+                    entry.getKey(), user, assistant, calls,
+                    aggregateTokenUsage(nodes.stream()
+                            .filter(node -> node.turnId() == entry.getKey())
+                            .toList()));
         }).toList();
+    }
+
+    private AdminTokenUsageResponse aggregateTokenUsage(List<AdminNodeResponse> nodes) {
+        long calls = 0;
+        long input = 0;
+        long output = 0;
+        long cached = 0;
+        long cacheMiss = 0;
+        long cacheWrite = 0;
+        long cacheReportedCalls = 0;
+        long reasoning = 0;
+        long total = 0;
+        long duration = 0;
+        for (AdminNodeResponse node : nodes) {
+            if (!"MODEL_CALL".equals(node.type()) || !"SUCCESS".equals(node.status())
+                    || node.content() == null) continue;
+            try {
+                JsonNode usage = objectMapper.readTree(node.content());
+                calls++;
+                input += positive(usage, "inputTokens");
+                output += positive(usage, "outputTokens");
+                cached += positive(usage, "cachedInputTokens");
+                cacheMiss += positive(usage, "cacheMissInputTokens");
+                cacheWrite += positive(usage, "cacheWriteInputTokens");
+                if (usage.has("cachedInputTokens")) cacheReportedCalls++;
+                reasoning += positive(usage, "reasoningTokens");
+                long reportedTotal = positive(usage, "totalTokens");
+                total += reportedTotal > 0
+                        ? reportedTotal
+                        : positive(usage, "inputTokens") + positive(usage, "outputTokens");
+                duration += positive(usage, "durationMs");
+            } catch (Exception ignored) {
+                // 历史节点可能不是 JSON，监控聚合忽略单条脏数据但保留原始节点展示。
+            }
+        }
+        return new AdminTokenUsageResponse(
+                calls, input, output, cached, cacheMiss, cacheWrite,
+                cacheReportedCalls, reasoning, total, duration);
+    }
+
+    private long positive(JsonNode node, String field) {
+        JsonNode value = node.get(field);
+        return value == null || !value.isNumber() ? 0 : Math.max(0, value.asLong());
     }
 }

@@ -1,6 +1,7 @@
 package com.jam.agent.agent.service;
 
 import com.jam.agent.agent.loop.ModelAdapter;
+import com.jam.agent.agent.model.ModelCallScope;
 import com.jam.agent.agent.persistence.repository.ConversationNodeRepository;
 import com.jam.agent.agent.runtime.AgentExecutionContext;
 import java.util.List;
@@ -45,7 +46,8 @@ public class ImageSummaryService {
                     .text("请用简洁中文描述这张图片的可观察内容，重点说明文字、界面元素、人物、物品、数字和布局。只输出摘要正文，不要输出 JSON、标题或额外解释。")
                     .media(images.toMedia(context.userId(), assetId))
                     .build());
-            String summary = model.call(messages, List.of(), context).message().getText();
+            String summary = model.call(
+                    messages, List.of(), context, ModelCallScope.imageSummary()).message().getText();
             if (summary == null || summary.isBlank()) throw new IllegalStateException("模型未生成图片摘要。");
             images.saveSummary(assetId, summary, context.modelConfig().modelName());
             writeNode(context, key, assetId, "SUCCESS", summary);

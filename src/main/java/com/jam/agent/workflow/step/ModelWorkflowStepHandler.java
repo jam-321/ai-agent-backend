@@ -1,6 +1,7 @@
 package com.jam.agent.workflow.step;
 
 import com.jam.agent.agent.loop.ModelAdapter;
+import com.jam.agent.agent.model.ModelCallScope;
 import com.jam.agent.workflow.definition.WorkflowStep;
 import com.jam.agent.workflow.runtime.WorkflowContext;
 import com.jam.agent.workflow.runtime.WorkflowStepHandler;
@@ -35,7 +36,11 @@ public class ModelWorkflowStepHandler implements WorkflowStepHandler {
         List<Message> messages = new ArrayList<>(context.history());
         messages.add(new UserMessage(prompt));
 
-        AssistantMessage response = model.call(messages, List.of(), context.execution()).message();
+        AssistantMessage response = model.call(
+                messages,
+                List.of(),
+                context.execution(),
+                ModelCallScope.workflowStep(stepNo)).message();
         if (response.hasToolCalls() || response.getText() == null || response.getText().isBlank()) {
             throw new IllegalStateException("工作流模型步骤未生成有效正文。 ");
         }

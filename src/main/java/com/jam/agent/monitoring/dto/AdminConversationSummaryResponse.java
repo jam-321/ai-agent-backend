@@ -9,6 +9,11 @@ public record AdminConversationSummaryResponse(
         String title,
         long turnCount,
         long nodeCount,
+        long modelCallCount,
+        long cachedInputTokens,
+        long cacheMissInputTokens,
+        long cacheUsageReportedCalls,
+        long totalTokens,
         String latestStatus,
         LocalDateTime createdAt,
         LocalDateTime updatedAt) {

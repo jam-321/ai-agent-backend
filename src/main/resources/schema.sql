@@ -118,6 +118,42 @@ CREATE TABLE IF NOT EXISTS `conversation_node` (
         FOREIGN KEY (`conversation_id`) REFERENCES `conversation` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `conversation_node_output` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `conversation_id` BIGINT NOT NULL,
+    `turn_id` INT NOT NULL,
+    `node_name` VARCHAR(128) NOT NULL,
+    `aggr_key` VARCHAR(128) NOT NULL,
+    `trace_id` VARCHAR(64) NOT NULL,
+    `type` VARCHAR(32) NOT NULL,
+    `content` LONGTEXT NOT NULL,
+    `content_tokens` INT DEFAULT NULL,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_node_output_call_type` (`conversation_id`, `turn_id`, `aggr_key`, `type`),
+    KEY `idx_node_output_trace` (`trace_id`, `id`),
+    CONSTRAINT `fk_node_output_conversation`
+        FOREIGN KEY (`conversation_id`) REFERENCES `conversation` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `conversation_memory_summary` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `conversation_id` BIGINT NOT NULL,
+    `covered_from_turn_id` INT NOT NULL,
+    `covered_until_turn_id` INT NOT NULL,
+    `content` LONGTEXT NOT NULL,
+    `model_provider_key` VARCHAR(64) DEFAULT NULL,
+    `model_name` VARCHAR(128) DEFAULT NULL,
+    `input_tokens` BIGINT DEFAULT NULL,
+    `output_tokens` BIGINT DEFAULT NULL,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_memory_summary_coverage` (`conversation_id`, `covered_until_turn_id`),
+    KEY `idx_memory_summary_latest` (`conversation_id`, `id`),
+    CONSTRAINT `fk_memory_summary_conversation`
+        FOREIGN KEY (`conversation_id`) REFERENCES `conversation` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `media_asset` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
     `owner_id` BIGINT NOT NULL,

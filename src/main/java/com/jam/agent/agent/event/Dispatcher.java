@@ -58,6 +58,26 @@ public class Dispatcher {
         dispatch(AgentEvent.generate(context, attemptNo, content, error));
     }
 
+    public void modelCallStart(
+            AgentExecutionContext context,
+            int attemptNo,
+            Integer roundNo,
+            String callId,
+            String content) {
+        dispatch(AgentEvent.modelCallStart(context, attemptNo, roundNo, callId, content));
+    }
+
+    public void modelCallEnd(
+            AgentExecutionContext context,
+            int attemptNo,
+            Integer roundNo,
+            String callId,
+            String content,
+            boolean error) {
+        dispatch(AgentEvent.modelCallEnd(
+                context, attemptNo, roundNo, callId, content, error));
+    }
+
     public void workflowStepStart(
             AgentExecutionContext context,
             int attemptNo,

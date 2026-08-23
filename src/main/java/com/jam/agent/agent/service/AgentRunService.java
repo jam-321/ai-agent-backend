@@ -5,6 +5,8 @@ import com.jam.agent.agent.runtime.ConversationLock;
 import com.jam.agent.agent.runtime.TurnFinalizer;
 import com.jam.agent.agent.config.AgentConfigSnapshot;
 import com.jam.agent.agent.config.AgentLoopConfig;
+import com.jam.agent.agent.config.AgentBudgetConfig;
+import com.jam.agent.agent.config.AgentMemoryConfig;
 import com.jam.agent.agent.config.AgentProperties;
 import com.jam.agent.agent.dto.ChatRequest;
 import com.jam.agent.agent.dto.ChatResponse;
@@ -13,6 +15,7 @@ import com.jam.agent.conversation.persistence.repository.ConversationTurnReposit
 import com.jam.agent.auth.persistence.repository.UserRepository;
 import com.jam.agent.agent.persistence.repository.AgentConfigRepository;
 import com.jam.agent.agent.model.AgentModelConfig;
+import com.jam.agent.agent.runtime.TokenBudgetTracker;
 import com.jam.agent.agent.model.persistence.repository.ModelProviderConfigRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jam.agent.workflow.runtime.WorkflowConfig;
@@ -259,6 +262,10 @@ public class AgentRunService {
                 properties.getWorkflow(),
                 agentConfig.magicParams(),
                 objectMapper);
+        AgentBudgetConfig budget = AgentBudgetConfig.resolve(
+                properties.getBudget(), agentConfig.magicParams(), objectMapper);
+        AgentMemoryConfig memory = AgentMemoryConfig.resolve(
+                properties.getMemory(), agentConfig.magicParams(), objectMapper);
         return new AgentExecutionContext(
                 userId,
                 conversationId,
@@ -274,7 +281,10 @@ public class AgentRunService {
                 loop.maxDegenerateRetries(),
                 loop.maxSameToolSignature(),
                 workflow.maxSteps(),
-                AgentExecutionContext.deadline(loop.maxRunDuration()));
+                AgentExecutionContext.deadline(loop.maxRunDuration()),
+                budget,
+                memory,
+                new TokenBudgetTracker(budget.maxTokensPerTurn()));
     }
 
     private void submitWorker(AgentExecutionContext context) {

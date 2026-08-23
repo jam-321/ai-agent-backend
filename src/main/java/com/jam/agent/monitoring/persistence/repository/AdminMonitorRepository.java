@@ -36,7 +36,14 @@ public class AdminMonitorRepository {
                 asLong(row, "reasoning_run_count"),
                 asLong(row, "tool_call_count"),
                 asLong(row, "tool_success_count"),
-                asLong(row, "tool_error_count"));
+                asLong(row, "tool_error_count"),
+                asLong(row, "model_call_count"),
+                asLong(row, "input_tokens"),
+                asLong(row, "output_tokens"),
+                asLong(row, "cached_input_tokens"),
+                asLong(row, "cache_miss_input_tokens"),
+                asLong(row, "cache_usage_reported_calls"),
+                asLong(row, "total_tokens"));
     }
 
     public long countConversations(String search) {
@@ -121,6 +128,11 @@ public class AdminMonitorRepository {
                 asString(row, "title"),
                 asLong(row, "turn_count"),
                 asLong(row, "node_count"),
+                asLong(row, "model_call_count"),
+                asLong(row, "cached_input_tokens"),
+                asLong(row, "cache_miss_input_tokens"),
+                asLong(row, "cache_usage_reported_calls"),
+                asLong(row, "total_tokens"),
                 asString(row, "latest_status"),
                 asLocalDateTime(row, "created_at"),
                 asLocalDateTime(row, "updated_at"));

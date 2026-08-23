@@ -6,5 +6,6 @@ public record AdminTurnTreeResponse(
         int turnId,
         AdminTurnResponse userTurn,
         AdminTurnResponse assistantTurn,
-        List<AdminToolCallResponse> toolCalls) {
+        List<AdminToolCallResponse> toolCalls,
+        AdminTokenUsageResponse tokenUsage) {
 }

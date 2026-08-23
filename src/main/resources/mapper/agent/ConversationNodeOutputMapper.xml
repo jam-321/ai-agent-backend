@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jam.agent.agent.persistence.mapper.ConversationNodeOutputMapper">
+    <select id="selectOwned" resultType="com.jam.agent.agent.persistence.entity.ConversationNodeOutputEntity">
+        SELECT o.*
+        FROM conversation_node_output o
+        JOIN conversation c ON c.id = o.conversation_id
+        WHERE o.conversation_id = #{conversationId}
+          AND o.turn_id = #{turnId}
+          AND o.aggr_key = #{aggrKey}
+          AND c.user_id = #{userId}
+          AND c.is_deleted = 0
+        LIMIT 1
+    </select>
+</mapper>

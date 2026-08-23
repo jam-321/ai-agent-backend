@@ -9,7 +9,8 @@ import com.jam.agent.agent.persistence.repository.ConversationNodeRepository;
 @PluginSubscribes(
         id = "node_trace",
         events = {"lifecycle", "tool_call", "tool_result", "workflow_step_start",
-                "workflow_step_end", "assistant", "generate"},
+                "workflow_step_end", "model_call_start", "model_call_end",
+                "assistant", "generate"},
         order = 5,
         system = true)
 public class NodeTracePlugin implements Plugin {
@@ -49,6 +50,14 @@ public class NodeTracePlugin implements Plugin {
                 nodeName = event.toolName();
                 type = "WORKFLOW_STEP";
                 status = "workflow_step_start".equals(event.name())
+                        ? "START"
+                        : event.error() ? "ERROR" : "SUCCESS";
+            }
+            case "model_call_start", "model_call_end" -> {
+                nodeId = "model_call";
+                nodeName = "模型调用";
+                type = "MODEL_CALL";
+                status = "model_call_start".equals(event.name())
                         ? "START"
                         : event.error() ? "ERROR" : "SUCCESS";
             }

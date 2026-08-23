@@ -79,7 +79,7 @@ public record AgentConfigSnapshot(
         return new AgentConfigSnapshot(
                 "general",
                 false,
-                "你是一个友好、专业的中文 AI Agent。需要准确时间时调用 current_time，需要精确算术时调用 calculate，需要查询历史工具完整数据时调用 query_conversation_node。不要编造工具结果。",
+                "你是一个友好、专业的中文 AI Agent。需要准确时间时调用 current_time，需要精确算术时调用 calculate，需要查询历史工具节点时调用 query_conversation_node，被压缩的大结果按提示调用 query_tool_output。不要编造工具结果。",
                 Set.of(),
                 null,
                 "{}",

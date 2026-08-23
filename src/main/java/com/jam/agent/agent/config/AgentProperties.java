@@ -7,6 +7,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class AgentProperties {
 
     private final Loop loop = new Loop();
+    private final Budget budget = new Budget();
     private final Memory memory = new Memory();
     private final Progress progress = new Progress();
     private final Lock lock = new Lock();
@@ -14,6 +15,7 @@ public class AgentProperties {
     private final Workflow workflow = new Workflow();
 
     public Loop getLoop() { return loop; }
+    public Budget getBudget() { return budget; }
     public Memory getMemory() { return memory; }
     public Progress getProgress() { return progress; }
     public Lock getLock() { return lock; }
@@ -47,6 +49,11 @@ public class AgentProperties {
         private int maxToolArgsPreviewChars = 300;
         private int maxToolResultPreviewChars = 500;
         private int maxHistoryTokens = 24000;
+        private boolean compactionEnabled = true;
+        private int compactionTriggerTokens = 18000;
+        private int keepRecentTokens = 8000;
+        private int maxToolResultTokens = 5000;
+        private int compactedToolPreviewChars = 1200;
         public int getMaxHistoryTurns() { return maxHistoryTurns; }
         public void setMaxHistoryTurns(int v) { maxHistoryTurns = v; }
         public int getMaxToolPairsPerTurn() { return maxToolPairsPerTurn; }
@@ -57,6 +64,32 @@ public class AgentProperties {
         public void setMaxToolResultPreviewChars(int v) { maxToolResultPreviewChars = v; }
         public int getMaxHistoryTokens() { return maxHistoryTokens; }
         public void setMaxHistoryTokens(int v) { maxHistoryTokens = v; }
+        public boolean isCompactionEnabled() { return compactionEnabled; }
+        public void setCompactionEnabled(boolean v) { compactionEnabled = v; }
+        public int getCompactionTriggerTokens() { return compactionTriggerTokens; }
+        public void setCompactionTriggerTokens(int v) { compactionTriggerTokens = v; }
+        public int getKeepRecentTokens() { return keepRecentTokens; }
+        public void setKeepRecentTokens(int v) { keepRecentTokens = v; }
+        public int getMaxToolResultTokens() { return maxToolResultTokens; }
+        public void setMaxToolResultTokens(int v) { maxToolResultTokens = v; }
+        public int getCompactedToolPreviewChars() { return compactedToolPreviewChars; }
+        public void setCompactedToolPreviewChars(int v) { compactedToolPreviewChars = v; }
+    }
+
+    /** 全局安全上限；Agent 配方只能把预算调低，不能突破这里。 */
+    public static class Budget {
+        private long maxTokensPerTurn = 200000;
+        private int maxContextTokens = 32000;
+        private int maxOutputTokens = 4096;
+        private int safetyMarginTokens = 2048;
+        public long getMaxTokensPerTurn() { return maxTokensPerTurn; }
+        public void setMaxTokensPerTurn(long v) { maxTokensPerTurn = v; }
+        public int getMaxContextTokens() { return maxContextTokens; }
+        public void setMaxContextTokens(int v) { maxContextTokens = v; }
+        public int getMaxOutputTokens() { return maxOutputTokens; }
+        public void setMaxOutputTokens(int v) { maxOutputTokens = v; }
+        public int getSafetyMarginTokens() { return safetyMarginTokens; }
+        public void setSafetyMarginTokens(int v) { safetyMarginTokens = v; }
     }
 
     public static class Progress {

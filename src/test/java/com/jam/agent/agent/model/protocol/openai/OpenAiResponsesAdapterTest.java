@@ -60,6 +60,7 @@ class OpenAiResponsesAdapterTest {
         assertEquals("function_call_output", input.get(3).path("type").asText());
         assertEquals("call-1", input.get(3).path("call_id").asText());
         assertEquals("current_time", request.path("tools").get(0).path("name").asText());
+        assertEquals(4096, request.path("max_output_tokens").asInt());
     }
 
     @Test
@@ -68,7 +69,13 @@ class OpenAiResponsesAdapterTest {
                 {
                   "id":"response-1",
                   "model":"glm-5.3",
-                  "usage":{"input_tokens":12,"output_tokens":8},
+                  "usage":{
+                    "input_tokens":12,
+                    "output_tokens":8,
+                    "total_tokens":20,
+                    "input_tokens_details":{"cached_tokens":5},
+                    "output_tokens_details":{"reasoning_tokens":3}
+                  },
                   "output":[
                     {"type":"reasoning","id":"reasoning-1"},
                     {"type":"message","content":[{"type":"output_text","text":"先查询时间"}]},
@@ -83,6 +90,9 @@ class OpenAiResponsesAdapterTest {
         assertEquals("glm-5.3", result.returnedModel());
         assertEquals(12L, result.inputTokens());
         assertEquals(8L, result.outputTokens());
+        assertEquals(5L, result.cachedInputTokens());
+        assertEquals(3L, result.reasoningTokens());
+        assertEquals(20L, result.totalTokens());
         assertEquals("先查询时间", result.message().getText());
         assertEquals("call-1", result.message().getToolCalls().get(0).id());
         assertTrue(result.message().getMetadata()

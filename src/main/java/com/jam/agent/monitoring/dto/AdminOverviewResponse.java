@@ -11,5 +11,12 @@ public record AdminOverviewResponse(
         long reasoningRunCount,
         long toolCallCount,
         long toolSuccessCount,
-        long toolErrorCount) {
+        long toolErrorCount,
+        long modelCallCount,
+        long inputTokens,
+        long outputTokens,
+        long cachedInputTokens,
+        long cacheMissInputTokens,
+        long cacheUsageReportedCalls,
+        long totalTokens) {
 }

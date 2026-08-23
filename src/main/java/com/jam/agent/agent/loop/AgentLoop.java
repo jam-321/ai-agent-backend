@@ -2,6 +2,9 @@ package com.jam.agent.agent.loop;
 
 import com.jam.agent.agent.event.Dispatcher;
 import com.jam.agent.agent.runtime.AgentExecutionContext;
+import com.jam.agent.agent.model.ModelCallScope;
+import com.jam.agent.agent.runtime.TokenBudgetTracker.TokenBudgetExceededException;
+import com.jam.agent.agent.memory.InMemoryContextCompactor;
 import com.jam.agent.agent.tool.ToolExecutor;
 import com.jam.agent.agent.tool.ToolExecutor.ToolResult;
 import java.util.ArrayList;
@@ -33,16 +36,19 @@ public class AgentLoop {
     private final ToolExecutor tools;
     private final Dispatcher events;
     private final Executor toolExecutor;
+    private final InMemoryContextCompactor contextCompactor;
 
     public AgentLoop(
             ModelAdapter model,
             ToolExecutor tools,
             Dispatcher events,
-            @Qualifier("agentToolExecutor") Executor toolExecutor) {
+            @Qualifier("agentToolExecutor") Executor toolExecutor,
+            InMemoryContextCompactor contextCompactor) {
         this.model = model;
         this.tools = tools;
         this.events = events;
         this.toolExecutor = toolExecutor;
+        this.contextCompactor = contextCompactor;
     }
 
     /** Runs model rounds until the model returns a final answer without tool calls. */
@@ -64,8 +70,26 @@ public class AgentLoop {
         for (int roundNo = 1; roundNo <= context.maxToolRounds(); roundNo++) {
             context.checkDeadline();
             events.lifecycle(context, attemptNo, roundNo, "round_start");
+            contextCompactor.compactIfNeeded(
+                    messages, callbacks, context, attemptNo, roundNo);
 
-            AssistantMessage response = model.call(messages, callbacks, context).message();
+            AssistantMessage response;
+            try {
+                response = model.call(
+                        messages,
+                        callbacks,
+                        context,
+                        ModelCallScope.agentRound(attemptNo, roundNo)).message();
+            } catch (TokenBudgetExceededException exception) {
+                events.lifecycle(context, attemptNo, roundNo, "budget_limit_reached");
+                return "本次执行已达到当前 Agent 的 Token 预算，已停止继续调用模型和工具。";
+            }
+            if (context.tokenBudget().exhausted() && response.hasToolCalls()) {
+                events.lifecycle(context, attemptNo, roundNo, "budget_limit_reached");
+                return isMeaningful(response.getText())
+                        ? response.getText()
+                        : "本次执行已达到当前 Agent 的 Token 预算，未继续执行后续工具调用。";
+            }
             if (response.hasToolCalls()) {
                 executeToolRound(
                         context,

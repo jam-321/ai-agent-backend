@@ -2,6 +2,7 @@ package com.jam.agent.agent.tool.definition;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jam.agent.agent.persistence.repository.ConversationNodeRepository;
+import com.jam.agent.agent.persistence.repository.ConversationNodeOutputRepository;
 import com.jam.agent.agent.persistence.repository.ConversationTurnAttachmentRepository;
 import com.jam.agent.agent.persistence.repository.MediaAssetRepository;
 import com.jam.agent.agent.runtime.AgentExecutionContext;
@@ -20,16 +21,19 @@ public class ConversationTools implements AgentToolProvider {
     private final ObjectMapper objectMapper;
     private final ConversationTurnAttachmentRepository attachments;
     private final MediaAssetRepository assets;
+    private final ConversationNodeOutputRepository outputs;
 
     public ConversationTools(
             ConversationNodeRepository nodes,
             ObjectMapper objectMapper,
             ConversationTurnAttachmentRepository attachments,
-            MediaAssetRepository assets) {
+            MediaAssetRepository assets,
+            ConversationNodeOutputRepository outputs) {
         this.nodes = nodes;
         this.objectMapper = objectMapper;
         this.attachments = attachments;
         this.assets = assets;
+        this.outputs = outputs;
     }
 
     @Tool(
@@ -87,6 +91,38 @@ public class ConversationTools implements AgentToolProvider {
         }).toList());
     }
 
+    @Tool(
+            name = "query_tool_output",
+            description = "按回查句柄分页读取当前会话中被压缩归档的完整工具结果。")
+    public String queryToolOutput(
+            @ToolParam(description = "工具调用所在轮次") Integer targetTurnId,
+            @ToolParam(description = "压缩占位中的 handle") String handle,
+            @ToolParam(description = "从第几个字符开始，默认 0", required = false) Integer offset,
+            @ToolParam(description = "最多返回字符数，默认 4000，最大 12000", required = false) Integer limit,
+            ToolContext toolContext) throws Exception {
+        AgentExecutionContext context = requireExecutionContext(toolContext);
+        if (targetTurnId == null || targetTurnId < 1 || targetTurnId > context.turnId()
+                || handle == null || handle.isBlank()) {
+            throw new IllegalArgumentException("轮次或回查句柄无效。");
+        }
+        var output = outputs.findOwned(
+                context.userId(), context.conversationId(), targetTurnId, handle.trim())
+                .orElseThrow(() -> new IllegalArgumentException("未找到归档的工具结果。"));
+        int start = Math.max(0, offset == null ? 0 : offset);
+        int pageSize = Math.min(12000, Math.max(1, limit == null ? 4000 : limit));
+        int end = Math.min(output.getContent().length(), start + pageSize);
+        if (start > output.getContent().length()) start = output.getContent().length();
+        Map<String, Object> value = new LinkedHashMap<>();
+        value.put("turnId", targetTurnId);
+        value.put("handle", handle);
+        value.put("offset", start);
+        value.put("nextOffset", end < output.getContent().length() ? end : null);
+        value.put("hasMore", end < output.getContent().length());
+        value.put("totalCharacters", output.getContent().length());
+        value.put("content", output.getContent().substring(start, end));
+        return objectMapper.writeValueAsString(value);
+    }
+
     private AgentExecutionContext requireExecutionContext(ToolContext toolContext) {
         Object value = toolContext == null
                 ? null
@@ -103,10 +139,10 @@ public class ConversationTools implements AgentToolProvider {
             String aggrKey) {
         if (targetTurnId == null
                 || targetTurnId < 1
-                || targetTurnId >= context.turnId()
+                || targetTurnId > context.turnId()
                 || aggrKey == null
                 || aggrKey.isBlank()) {
-            throw new IllegalArgumentException("只能查询当前会话中更早轮次的有效工具调用。");
+            throw new IllegalArgumentException("只能查询当前会话中的有效工具调用。");
         }
     }
 }

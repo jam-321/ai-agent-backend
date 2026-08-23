@@ -2,6 +2,7 @@ package com.jam.agent.agent.tool;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jam.agent.agent.event.Dispatcher;
+import com.jam.agent.agent.memory.ToolResultCompactionService;
 import com.jam.agent.agent.runtime.AgentExecutionContext;
 import com.jam.agent.agent.tool.registry.ToolRegistry;
 import java.util.Map;
@@ -19,14 +20,17 @@ public class ToolExecutor {
     private final ToolRegistry registry;
     private final Dispatcher events;
     private final ObjectMapper objectMapper;
+    private final ToolResultCompactionService compaction;
 
     public ToolExecutor(
             ToolRegistry registry,
             Dispatcher events,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            ToolResultCompactionService compaction) {
         this.registry = registry;
         this.events = events;
         this.objectMapper = objectMapper;
+        this.compaction = compaction;
     }
 
     public ToolResult execute(
@@ -49,9 +53,19 @@ public class ToolExecutor {
             result = errorResult(exception);
         }
 
-        // Persist the terminal event on this synchronous path before the result returns to the loop.
-        events.toolEnd(context, attemptNo, roundNo, callIndex, call.name(), call.id(), result, error);
-        return new ToolResult(call.id(), call.name(), result, error);
+        String modelResult = result;
+        if (!error) {
+            try {
+                modelResult = compaction.compact(context, call.name(), call.id(), result).modelContent();
+            } catch (Exception exception) {
+                // 压缩属于保护能力；归档失败时继续回填原始结果，不能把成功工具变成失败。
+                modelResult = result;
+            }
+        }
+
+        // Node 保存实际回填给模型的内容；超大原文由 conversation_node_output 单独归档。
+        events.toolEnd(context, attemptNo, roundNo, callIndex, call.name(), call.id(), modelResult, error);
+        return new ToolResult(call.id(), call.name(), modelResult, error);
     }
 
     private ToolCallback requireCallback(AgentExecutionContext context, String name) {

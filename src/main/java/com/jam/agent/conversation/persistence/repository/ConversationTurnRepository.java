@@ -68,6 +68,15 @@ public class ConversationTurnRepository {
                 .toList();
     }
 
+    public List<TurnRecord> findCompletedRange(
+            long userId,
+            long conversationId,
+            int afterTurnId,
+            int beforeTurnId) {
+        return mapper.selectCompletedRange(userId, conversationId, afterTurnId, beforeTurnId)
+                .stream().map(this::toRecord).toList();
+    }
+
     public List<TurnRecord> findIncompleteTurns() {
         return mapper.selectIncompleteTurns().stream()
                 .map(this::toRecord)

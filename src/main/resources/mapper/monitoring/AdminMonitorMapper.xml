@@ -15,6 +15,32 @@
         (SELECT COUNT(*)
          FROM conversation_node n
          WHERE n.conversation_id = c.id) AS node_count,
+        (SELECT COUNT(*)
+         FROM conversation_node n
+         WHERE n.conversation_id = c.id
+           AND n.type = 'MODEL_CALL' AND n.status = 'SUCCESS') AS model_call_count,
+        (SELECT COALESCE(SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(n.content, '$.cachedInputTokens')) AS UNSIGNED)), 0)
+         FROM conversation_node n
+         WHERE n.conversation_id = c.id AND n.type = 'MODEL_CALL' AND n.status = 'SUCCESS'
+           AND JSON_VALID(n.content) AND JSON_CONTAINS_PATH(n.content, 'one', '$.cachedInputTokens')) AS cached_input_tokens,
+        (SELECT COALESCE(SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(n.content, '$.cacheMissInputTokens')) AS UNSIGNED)), 0)
+         FROM conversation_node n
+         WHERE n.conversation_id = c.id AND n.type = 'MODEL_CALL' AND n.status = 'SUCCESS'
+           AND JSON_VALID(n.content) AND JSON_CONTAINS_PATH(n.content, 'one', '$.cachedInputTokens')) AS cache_miss_input_tokens,
+        (SELECT COUNT(*)
+         FROM conversation_node n
+         WHERE n.conversation_id = c.id AND n.type = 'MODEL_CALL' AND n.status = 'SUCCESS'
+           AND JSON_VALID(n.content) AND JSON_CONTAINS_PATH(n.content, 'one', '$.cachedInputTokens')) AS cache_usage_reported_calls,
+        (SELECT COALESCE(SUM(
+             COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(n.content, '$.totalTokens')) AS UNSIGNED),
+                      CAST(JSON_UNQUOTE(JSON_EXTRACT(n.content, '$.inputTokens')) AS UNSIGNED), 0)
+             + CASE WHEN JSON_EXTRACT(n.content, '$.totalTokens') IS NULL
+                    THEN COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(n.content, '$.outputTokens')) AS UNSIGNED), 0)
+                    ELSE 0 END), 0)
+         FROM conversation_node n
+         WHERE n.conversation_id = c.id
+           AND n.type = 'MODEL_CALL' AND n.status = 'SUCCESS'
+           AND JSON_VALID(n.content)) AS total_tokens,
         CASE
             WHEN NOT EXISTS (
                 SELECT 1
@@ -99,7 +125,35 @@
              JOIN conversation c ON c.id = n.conversation_id
              WHERE c.is_deleted = 0
                AND n.type = 'TOOL_CALL'
-               AND n.status = 'ERROR') AS tool_error_count
+               AND n.status = 'ERROR') AS tool_error_count,
+            (SELECT COUNT(*) FROM conversation_node n
+             JOIN conversation c ON c.id = n.conversation_id
+             WHERE c.is_deleted = 0 AND n.type = 'MODEL_CALL' AND n.status = 'SUCCESS') AS model_call_count,
+            (SELECT COALESCE(SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(n.content, '$.inputTokens')) AS UNSIGNED)), 0)
+             FROM conversation_node n JOIN conversation c ON c.id = n.conversation_id
+             WHERE c.is_deleted = 0 AND n.type = 'MODEL_CALL' AND n.status = 'SUCCESS' AND JSON_VALID(n.content)) AS input_tokens,
+            (SELECT COALESCE(SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(n.content, '$.outputTokens')) AS UNSIGNED)), 0)
+             FROM conversation_node n JOIN conversation c ON c.id = n.conversation_id
+             WHERE c.is_deleted = 0 AND n.type = 'MODEL_CALL' AND n.status = 'SUCCESS' AND JSON_VALID(n.content)) AS output_tokens,
+            (SELECT COALESCE(SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(n.content, '$.cachedInputTokens')) AS UNSIGNED)), 0)
+             FROM conversation_node n JOIN conversation c ON c.id = n.conversation_id
+             WHERE c.is_deleted = 0 AND n.type = 'MODEL_CALL' AND n.status = 'SUCCESS' AND JSON_VALID(n.content)) AS cached_input_tokens,
+            (SELECT COALESCE(SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(n.content, '$.cacheMissInputTokens')) AS UNSIGNED)), 0)
+             FROM conversation_node n JOIN conversation c ON c.id = n.conversation_id
+             WHERE c.is_deleted = 0 AND n.type = 'MODEL_CALL' AND n.status = 'SUCCESS'
+               AND JSON_VALID(n.content) AND JSON_CONTAINS_PATH(n.content, 'one', '$.cachedInputTokens')) AS cache_miss_input_tokens,
+            (SELECT COUNT(*)
+             FROM conversation_node n JOIN conversation c ON c.id = n.conversation_id
+             WHERE c.is_deleted = 0 AND n.type = 'MODEL_CALL' AND n.status = 'SUCCESS'
+               AND JSON_VALID(n.content) AND JSON_CONTAINS_PATH(n.content, 'one', '$.cachedInputTokens')) AS cache_usage_reported_calls,
+            (SELECT COALESCE(SUM(
+                 COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(n.content, '$.totalTokens')) AS UNSIGNED),
+                          CAST(JSON_UNQUOTE(JSON_EXTRACT(n.content, '$.inputTokens')) AS UNSIGNED), 0)
+                 + CASE WHEN JSON_EXTRACT(n.content, '$.totalTokens') IS NULL
+                        THEN COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(n.content, '$.outputTokens')) AS UNSIGNED), 0)
+                        ELSE 0 END), 0)
+             FROM conversation_node n JOIN conversation c ON c.id = n.conversation_id
+             WHERE c.is_deleted = 0 AND n.type = 'MODEL_CALL' AND n.status = 'SUCCESS' AND JSON_VALID(n.content)) AS total_tokens
     </select>
 
     <sql id="ConversationWhere">

@@ -36,6 +36,12 @@ public interface ConversationTurnMapper extends BaseMapper<ConversationTurnEntit
             @Param("currentTurnId") int currentTurnId,
             @Param("limit") int limit);
 
+    List<ConversationTurnEntity> selectCompletedRange(
+            @Param("userId") long userId,
+            @Param("conversationId") long conversationId,
+            @Param("afterTurnId") int afterTurnId,
+            @Param("beforeTurnId") int beforeTurnId);
+
     List<ConversationTurnEntity> selectIncompleteTurns();
 
     List<ConversationTurnEntity> selectTurnsForUser(
