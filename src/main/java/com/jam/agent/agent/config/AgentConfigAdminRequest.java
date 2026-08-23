@@ -12,5 +12,7 @@ public record AgentConfigAdminRequest(
         String imageHistoryMode,
         String modelProviderKey,
         String modelName,
-        Double modelTemperature) {
+        Double modelTemperature,
+        String fallbackModelProviderKey,
+        String fallbackModelName) {
 }

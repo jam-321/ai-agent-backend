@@ -57,7 +57,11 @@ public class AgentRunWorker {
             AgentExecutor executor = executors.resolve(context.agentConfig().executionType());
             AgentRunResult result = executor.execute(context, turnMessages);
             attemptNo = result.attemptNo();
-            finalizer.complete(context, attemptNo, result.answer());
+            if (result.modelConfig() == null) {
+                finalizer.complete(context, attemptNo, result.answer());
+            } else {
+                finalizer.complete(context, attemptNo, result.answer(), result.modelConfig());
+            }
             if (imageSummaries != null) {
                 imageSummaries.submit(context);
             }

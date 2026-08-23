@@ -130,6 +130,15 @@ public record AgentExecutionContext(
         }
     }
 
+    /** 每个 Attempt 固定一个模型，同时共享同一 Turn 的预算和检查点状态。 */
+    public AgentExecutionContext forAttempt(AgentModelConfig attemptModel) {
+        return new AgentExecutionContext(
+                userId, conversationId, turnId, traceId, currentQuery, attachmentIds,
+                agentConfig, attemptModel, maxAttempts, maxToolRounds, maxToolsPerRound,
+                maxDegenerateRetries, maxSameToolSignature, maxWorkflowSteps, deadline,
+                budgetConfig, memoryConfig, tokenBudget, checkpointState);
+    }
+
     public static Instant deadline(Duration duration) {
         return Instant.now().plus(duration);
     }

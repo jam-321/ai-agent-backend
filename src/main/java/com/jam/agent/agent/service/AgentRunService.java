@@ -129,6 +129,10 @@ public class AgentRunService {
                 existingConversation,
                 agentConfig,
                 requestedAgentKey != null);
+        if (agentConfig.fallbackModelConfig() != null
+                && !agentConfig.fallbackModelConfig().supportsCapabilitiesOf(modelConfig)) {
+            throw new IllegalArgumentException("降级模型不具备当前主模型所需的图片或工具能力。");
+        }
         if (imageFiles != null && imageFiles.stream().anyMatch(file -> file != null && !file.isEmpty())
                 && !modelConfig.supportsImageInput()) {
             throw new IllegalArgumentException("MODEL_IMAGE_UNSUPPORTED：当前模型不支持图片输入。");

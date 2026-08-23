@@ -64,6 +64,9 @@ public class DatabaseSchemaMigration implements ApplicationRunner {
         if (mapper.countAgentConfigModelProviderColumn() == 0) {
             mapper.addAgentConfigModelColumns();
         }
+        if (mapper.countAgentConfigFallbackModelColumn() == 0) {
+            mapper.addAgentConfigFallbackModelColumns();
+        }
         if (mapper.countConversationModelProviderColumn() == 0) {
             mapper.addConversationModelColumns();
         }

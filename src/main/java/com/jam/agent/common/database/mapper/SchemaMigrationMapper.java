@@ -56,6 +56,10 @@ public interface SchemaMigrationMapper {
 
     void addAgentConfigModelColumns();
 
+    int countAgentConfigFallbackModelColumn();
+
+    void addAgentConfigFallbackModelColumns();
+
     int countConversationModelProviderColumn();
 
     void addConversationModelColumns();

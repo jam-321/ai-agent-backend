@@ -60,6 +60,8 @@ CREATE TABLE IF NOT EXISTS `agent_config` (
     `image_history_mode` VARCHAR(32) NOT NULL DEFAULT 'SUMMARY_TOOL',
     `model_provider_key` VARCHAR(64) NOT NULL DEFAULT 'deepseek',
     `model_name` VARCHAR(128) NOT NULL DEFAULT 'deepseek-v4-flash',
+    `fallback_model_provider_key` VARCHAR(64) DEFAULT NULL,
+    `fallback_model_name` VARCHAR(128) DEFAULT NULL,
     `model_temperature` DECIMAL(4,3) NOT NULL DEFAULT 0.700,
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

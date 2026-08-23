@@ -93,7 +93,8 @@ public class ConversationCompactionService {
             messages.add(new UserMessage(SUMMARY_MARKER + summary + "\n[/CONTEXT_SUMMARY]"));
             messages.addAll(tail);
             context.checkpointState().capture(messages, result);
-            persistCheckpoint(context, messages, result);
+            // 先只保存在当前 Turn 内存中；只有 Turn 成功落 assistant 终态后才持久化，
+            // 避免失败 Attempt 的临时摘要污染下一轮历史。
             events.lifecycle(context, attemptNo, roundNo,
                     "conversation_compaction_success:tokensBefore="
                             + estimatedNextInput + ",tokensAfter="

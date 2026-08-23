@@ -1,6 +1,7 @@
 package com.jam.agent.agent.runtime;
 
 import com.jam.agent.agent.event.Dispatcher;
+import com.jam.agent.agent.model.AgentModelConfig;
 import com.jam.agent.conversation.persistence.repository.ConversationRepository;
 import com.jam.agent.conversation.persistence.repository.ConversationTurnRepository;
 import org.springframework.stereotype.Component;
@@ -35,6 +36,14 @@ public class TurnFinalizer {
     }
 
     public void complete(AgentExecutionContext context, int attemptNo, String answer) {
+        complete(context, attemptNo, answer, context.modelConfig());
+    }
+
+    public void complete(
+            AgentExecutionContext context,
+            int attemptNo,
+            String answer,
+            AgentModelConfig actualModel) {
         String finalAnswer = normalizeAnswer(answer);
         transactions.executeWithoutResult(status -> {
             turns.insert(
@@ -45,7 +54,7 @@ public class TurnFinalizer {
                     finalAnswer,
                     context.traceId(),
                     context.agentConfig().agentKey(),
-                    context.modelConfig(),
+                    actualModel == null ? context.modelConfig() : actualModel,
                     null);
             events.generate(context, attemptNo, finalAnswer, false);
             conversations.touch(context.userId(), context.conversationId());

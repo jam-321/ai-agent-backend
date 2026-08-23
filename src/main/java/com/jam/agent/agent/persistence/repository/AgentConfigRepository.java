@@ -119,6 +119,10 @@ public class AgentConfigRepository {
                         entity.getModelProviderKey(), null, null, null, null, null,
                         entity.getModelName(), entity.getModelTemperature())
                 : provider.toModelConfig(entity.getModelName(), entity.getModelTemperature());
+        AgentModelConfig fallbackModelConfig = resolveOptionalModel(
+                entity.getFallbackModelProviderKey(),
+                entity.getFallbackModelName(),
+                entity.getModelTemperature());
         return new AgentConfigSnapshot(
                 entity.getAgentKey(),
                 Boolean.TRUE.equals(entity.getAdminOnly()),
@@ -129,7 +133,22 @@ public class AgentConfigRepository {
                 entity.getImageHistoryMode(),
                 entity.getExecutionType(),
                 entity.getExecutionKey(),
-                modelConfig);
+                modelConfig,
+                fallbackModelConfig);
+    }
+
+    private AgentModelConfig resolveOptionalModel(
+            String providerKey,
+            String modelName,
+            Double temperature) {
+        if (providerKey == null || providerKey.isBlank() || modelName == null || modelName.isBlank()) {
+            return null;
+        }
+        return modelProviders.findEnabledByKey(providerKey)
+                .filter(provider -> provider.models().stream()
+                        .anyMatch(model -> model.modelName().equals(modelName)))
+                .map(provider -> provider.toModelConfig(modelName, temperature))
+                .orElse(null);
     }
 
     private java.util.Set<String> parsePlugins(String json) {

@@ -31,7 +31,7 @@ import org.springframework.ai.chat.messages.UserMessage;
 class ConversationCompactionServiceTest {
 
     @Test
-    void compactsOldMessagesIntoUserCheckpointAndPersistsIt() {
+    void compactsOldMessagesIntoUserCheckpointAndPersistsItAfterTurnCompletes() {
         ModelAdapter model = mock(ModelAdapter.class);
         Dispatcher events = mock(Dispatcher.class);
         ConversationMemorySummaryRepository summaries = mock(ConversationMemorySummaryRepository.class);
@@ -51,6 +51,11 @@ class ConversationCompactionServiceTest {
                 .compactIfNeeded(messages, List.of(), context, 1, 1, 20L);
 
         assertTrue(messages.get(0).getText().contains("[CONTEXT_SUMMARY]"));
+        verify(summaries, org.mockito.Mockito.never()).upsertCheckpoint(
+                eq(2L), eq(3), anyString(), eq("provider"), eq("model"), eq(usage));
+        new ConversationCompactionService(
+                new TokenEstimator(), model, events, summaries)
+                .captureFinalMessages(context, messages);
         verify(summaries).upsertCheckpoint(
                 eq(2L), eq(3), anyString(), eq("provider"), eq("model"), eq(usage));
         verify(events).lifecycle(

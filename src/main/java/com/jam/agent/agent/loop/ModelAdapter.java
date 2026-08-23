@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jam.agent.agent.event.Dispatcher;
 import com.jam.agent.agent.memory.TokenEstimator;
 import com.jam.agent.agent.model.ModelCallScope;
+import com.jam.agent.agent.model.ModelFailureCategory;
 import com.jam.agent.agent.model.protocol.ModelProtocolRegistry;
 import com.jam.agent.agent.runtime.AgentExecutionContext;
 import java.util.ArrayList;
@@ -84,14 +85,24 @@ public class ModelAdapter {
             return result;
         } catch (RetryableModelException exception) {
             events.modelCallEnd(context, scope.attemptNo(), scope.roundNo(), callId,
-                    json(errorContent(context, scope, exception, estimatedInputTokens, elapsedMillis(startedAt))), true);
+                    json(errorContent(context, scope, exception, estimatedInputTokens,
+                            elapsedMillis(startedAt), exception.category())), true);
             throw exception;
         } catch (RuntimeException exception) {
+            ModelFailureCategory category = ModelFailureCategory.classify(exception);
             events.modelCallEnd(context, scope.attemptNo(), scope.roundNo(), callId,
-                    json(errorContent(context, scope, exception, estimatedInputTokens, elapsedMillis(startedAt))), true);
-            throw new RetryableModelException(
-                    "模型调用失败：" + safeMessage(exception),
-                    exception);
+                    json(errorContent(context, scope, exception, estimatedInputTokens,
+                            elapsedMillis(startedAt), category)), true);
+            if (category.failoverEligible()) {
+                throw new RetryableModelException(
+                        "模型调用失败[" + category + "]：" + safeMessage(exception),
+                        exception,
+                        category);
+            }
+            throw new NonRetryableModelException(
+                    "模型调用失败[" + category + "]：" + safeMessage(exception),
+                    exception,
+                    category);
         }
     }
 
@@ -133,11 +144,13 @@ public class ModelAdapter {
             ModelCallScope scope,
             RuntimeException exception,
             int estimatedInputTokens,
-            long durationMs) {
+            long durationMs,
+            ModelFailureCategory category) {
         Map<String, Object> value = baseContent(context, scope);
         value.put("estimatedInputTokens", estimatedInputTokens);
         value.put("durationMs", durationMs);
         value.put("error", safeMessage(exception));
+        value.put("failureCategory", category.name());
         value.put("usageSource", "UNKNOWN");
         return value;
     }
@@ -210,8 +223,38 @@ public class ModelAdapter {
 
     /** 可由 OuterLoop 重试的一次临时模型调用失败。 */
     public static class RetryableModelException extends RuntimeException {
+        private final ModelFailureCategory category;
+
         public RetryableModelException(String message, Throwable cause) {
+            this(message, cause, ModelFailureCategory.UNKNOWN);
+        }
+
+        public RetryableModelException(
+                String message,
+                Throwable cause,
+                ModelFailureCategory category) {
             super(message, cause);
+            this.category = category;
+        }
+
+        public ModelFailureCategory category() {
+            return category;
+        }
+    }
+
+    public static class NonRetryableModelException extends RuntimeException {
+        private final ModelFailureCategory category;
+
+        public NonRetryableModelException(
+                String message,
+                Throwable cause,
+                ModelFailureCategory category) {
+            super(message, cause);
+            this.category = category;
+        }
+
+        public ModelFailureCategory category() {
+            return category;
         }
     }
 }

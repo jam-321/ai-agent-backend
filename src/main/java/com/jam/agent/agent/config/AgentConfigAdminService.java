@@ -60,6 +60,13 @@ public class AgentConfigAdminService {
         }
         providers.findEnabledByKey(request.modelProviderKey())
                 .orElseThrow(() -> new IllegalArgumentException("模型供应商不存在或未启用。"));
+        validateModel(request.modelProviderKey(), request.modelName());
+        if ((request.fallbackModelProviderKey() == null) != (request.fallbackModelName() == null)) {
+            throw new IllegalArgumentException("降级模型供应商和模型名称必须同时提供。");
+        }
+        if (request.fallbackModelProviderKey() != null) {
+            validateModel(request.fallbackModelProviderKey(), request.fallbackModelName());
+        }
         entity.setExecutionType(defaultValue(request.executionType(), "LOOP"));
         entity.setAdminOnly("system_admin".equals(entity.getAgentKey()) || request.adminOnly());
         entity.setExecutionKey(request.executionKey());
@@ -70,7 +77,16 @@ public class AgentConfigAdminService {
         entity.setImageHistoryMode(defaultValue(request.imageHistoryMode(), "SUMMARY_TOOL"));
         entity.setModelProviderKey(request.modelProviderKey());
         entity.setModelName(request.modelName());
+        entity.setFallbackModelProviderKey(request.fallbackModelProviderKey());
+        entity.setFallbackModelName(request.fallbackModelName());
         entity.setModelTemperature(request.modelTemperature() == null ? 0.7 : request.modelTemperature());
+    }
+
+    private void validateModel(String providerKey, String modelName) {
+        providers.findEnabledByKey(providerKey)
+                .filter(provider -> provider.models().stream()
+                        .anyMatch(model -> model.modelName().equals(modelName)))
+                .orElseThrow(() -> new IllegalArgumentException("模型供应商或模型不存在、未启用。"));
     }
 
     private String defaultValue(String value, String fallback) {

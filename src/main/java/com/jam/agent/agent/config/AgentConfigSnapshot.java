@@ -14,7 +14,8 @@ public record AgentConfigSnapshot(
         String imageHistoryMode,
         String executionType,
         String executionKey,
-        AgentModelConfig modelConfig) {
+        AgentModelConfig modelConfig,
+        AgentModelConfig fallbackModelConfig) {
 
     public AgentConfigSnapshot(
             String agentKey,
@@ -24,6 +25,22 @@ public record AgentConfigSnapshot(
             String magicParams) {
         this(agentKey, false, systemPrompt, enabledPlugins, enabledTools, magicParams,
                 "SUMMARY_TOOL", "LOOP", null, null);
+    }
+
+    /** 兼容未配置备用模型的旧调用方。 */
+    public AgentConfigSnapshot(
+            String agentKey,
+            boolean adminOnly,
+            String systemPrompt,
+            Set<String> enabledPlugins,
+            Set<String> enabledTools,
+            String magicParams,
+            String imageHistoryMode,
+            String executionType,
+            String executionKey,
+            AgentModelConfig modelConfig) {
+        this(agentKey, adminOnly, systemPrompt, enabledPlugins, enabledTools, magicParams,
+                imageHistoryMode, executionType, executionKey, modelConfig, null);
     }
 
     public AgentConfigSnapshot(
