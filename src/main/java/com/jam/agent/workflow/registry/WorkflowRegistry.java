@@ -28,4 +28,9 @@ public class WorkflowRegistry {
         }
         return definition;
     }
+
+    /** 工作流由代码注册，管理员只能从已存在的定义中选择。 */
+    public List<String> keys() {
+        return definitions.keySet().stream().sorted().toList();
+    }
 }

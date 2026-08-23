@@ -26,4 +26,9 @@ public class AgentExecutorRegistry {
         }
         return executor;
     }
+
+    /** 管理端表单只展示后端实际注册成功的执行类型。 */
+    public List<String> executionTypes() {
+        return executors.keySet().stream().sorted().toList();
+    }
 }

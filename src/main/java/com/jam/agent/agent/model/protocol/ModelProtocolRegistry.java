@@ -34,4 +34,9 @@ public class ModelProtocolRegistry {
         }
         return adapter;
     }
+
+    /** 管理端不能配置一个当前运行时没有适配器的协议。 */
+    public List<String> protocolTypes() {
+        return adapters.keySet().stream().sorted().toList();
+    }
 }
