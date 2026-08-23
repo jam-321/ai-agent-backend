@@ -24,8 +24,10 @@ import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.content.Media;
 import org.springframework.ai.tool.ToolCallback;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -41,10 +43,22 @@ public class OpenAiChatCompletionsAdapter implements ModelProtocolAdapter {
     private static final String DEFAULT_ENDPOINT_PATH = "/v1/chat/completions";
 
     private final ObjectMapper objectMapper;
+    private final Duration connectTimeout;
+    private final Duration readTimeout;
     private final Map<ConnectionKey, RestClient> clients = new ConcurrentHashMap<>();
 
-    public OpenAiChatCompletionsAdapter(ObjectMapper objectMapper) {
+    @Autowired
+    public OpenAiChatCompletionsAdapter(
+            ObjectMapper objectMapper,
+            @Value("${agent.model.connect-timeout:10s}") Duration connectTimeout,
+            @Value("${agent.model.read-timeout:45s}") Duration readTimeout) {
         this.objectMapper = objectMapper;
+        this.connectTimeout = connectTimeout;
+        this.readTimeout = readTimeout;
+    }
+
+    public OpenAiChatCompletionsAdapter(ObjectMapper objectMapper) {
+        this(objectMapper, Duration.ofSeconds(10), Duration.ofSeconds(45));
     }
 
     @Override
@@ -273,8 +287,8 @@ public class OpenAiChatCompletionsAdapter implements ModelProtocolAdapter {
 
     private RestClient createClient(ConnectionKey connection) {
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-        requestFactory.setConnectTimeout(Duration.ofSeconds(10));
-        requestFactory.setReadTimeout(Duration.ofMinutes(3));
+        requestFactory.setConnectTimeout(connectTimeout);
+        requestFactory.setReadTimeout(readTimeout);
         return RestClient.builder()
                 .requestFactory(requestFactory)
                 .defaultHeaders(headers -> headers.setBearerAuth(connection.apiKey()))

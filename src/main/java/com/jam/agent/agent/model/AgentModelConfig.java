@@ -43,6 +43,12 @@ public record AgentModelConfig(
         return apiKey != null;
     }
 
+    public boolean supportsCapabilitiesOf(AgentModelConfig primary) {
+        return primary == null
+                || (!primary.supportsImageInput() || supportsImageInput)
+                && (!primary.supportsTools() || supportsTools);
+    }
+
     @Override
     public String toString() {
         // API Key 不进入日志、异常上下文或调试输出。

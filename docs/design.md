@@ -78,6 +78,7 @@ flowchart LR
 - 模型协议与供应商品牌解耦：当前支持 `OPENAI_CHAT_COMPLETIONS` 和 `OPENAI_RESPONSES`，并保留 `ANTHROPIC_MESSAGES` 扩展位。Chat Completions 由 Spring AI 适配，Responses 由原始 JSON 适配器处理 `input`、typed output item、`function_call` 和 `function_call_output`，应用自行维护上下文并固定 `store=false`。
 - 内置供应商目录包含 DeepSeek、Zhipu GLM、proaiapi 和呆呆兽中转站。DeepSeek 和 GLM 使用 OpenAI Chat Completions；两个中转站使用 OpenAI Responses。前端只展示脱敏模型目录，协议适配器未注册时才标记为不可用。
 - `agent_config` 保存 Agent 默认的供应商、模型名和 temperature；`conversation` 保存用户在该会话最后选择的供应商和模型。新会话未显式选择时使用 Agent 默认值，已有会话未显式选择时沿用会话值，前端显式切换则从下一 Turn 生效。
+- `agent_config` 可选保存备用供应商和模型；当前 Turn 的主模型发生超时、限流、过载或模型不存在等临时性故障时，OuterLoop 才允许切换备用模型。下一 Turn 仍从主模型开始，实际成功模型以 assistant Turn 和 MODEL_CALL 节点为准。
 - 模型配置在 Turn 提交时固定到独立的 `AgentExecutionContext.modelConfig`，因此同一会话可以切换 Agent 或模型，而运行中的 Turn 不受随后配置变化影响。`ModelRegistry` 按供应商连接缓存客户端，每次调用应用该 Turn 的模型名和 temperature。
 - `/api/agents` 返回 Agent 配方的脱敏模型元信息；`/api/models` 返回当前用户可见的扁平模型目录和可用状态，两个接口都不返回 API Key。前端保持两个选择框：切换 Agent 时自动选中该 Agent 默认模型，单独切换模型时保留当前 Agent；不增加“跟随 Agent 默认模型”第三个选项。正式开放用户录入原值 API Key 前必须增加服务端加密存储、所有权校验和脱敏管理接口。
 - `agent_config.magic_params` 用于 Agent 级运行参数扩展，当前支持 `loop.maxAttempts`、`loop.maxToolRounds`、`loop.maxToolsPerRound`、`loop.maxRunDurationSeconds`、`loop.maxDegenerateRetries` 和 `loop.maxSameToolSignature`。YAML 中的值作为默认值和安全上限，数据库配置不能超过上限。

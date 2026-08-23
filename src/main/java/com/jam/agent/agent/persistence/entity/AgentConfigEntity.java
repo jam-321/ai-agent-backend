@@ -21,6 +21,8 @@ public class AgentConfigEntity {
     private String imageHistoryMode;
     private String modelProviderKey;
     private String modelName;
+    private String fallbackModelProviderKey;
+    private String fallbackModelName;
     private Double modelTemperature;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -49,6 +51,10 @@ public class AgentConfigEntity {
     public void setModelProviderKey(String modelProviderKey) { this.modelProviderKey = modelProviderKey; }
     public String getModelName() { return modelName; }
     public void setModelName(String modelName) { this.modelName = modelName; }
+    public String getFallbackModelProviderKey() { return fallbackModelProviderKey; }
+    public void setFallbackModelProviderKey(String value) { fallbackModelProviderKey = value; }
+    public String getFallbackModelName() { return fallbackModelName; }
+    public void setFallbackModelName(String value) { fallbackModelName = value; }
     public Double getModelTemperature() { return modelTemperature; }
     public void setModelTemperature(Double modelTemperature) { this.modelTemperature = modelTemperature; }
     public LocalDateTime getCreatedAt() { return createdAt; }

@@ -19,7 +19,11 @@ public record AgentConfigResponse(
         String modelBaseUrl,
         String modelName,
         Double modelTemperature,
-        boolean modelApiKeyConfigured) {
+        boolean modelApiKeyConfigured,
+        String fallbackModelProviderKey,
+        String fallbackModelProviderName,
+        String fallbackModelName,
+        boolean fallbackModelApiKeyConfigured) {
 
     public static AgentConfigResponse from(AgentConfigSnapshot snapshot) {
         return new AgentConfigResponse(
@@ -37,6 +41,14 @@ public record AgentConfigResponse(
                 snapshot.modelConfig().baseUrl(),
                 snapshot.modelConfig().modelName(),
                 snapshot.modelConfig().temperature(),
-                snapshot.modelConfig().apiKeyConfigured());
+                snapshot.modelConfig().apiKeyConfigured(),
+                snapshot.fallbackModelConfig() == null
+                        ? null : snapshot.fallbackModelConfig().providerKey(),
+                snapshot.fallbackModelConfig() == null
+                        ? null : snapshot.fallbackModelConfig().providerName(),
+                snapshot.fallbackModelConfig() == null
+                        ? null : snapshot.fallbackModelConfig().modelName(),
+                snapshot.fallbackModelConfig() != null
+                        && snapshot.fallbackModelConfig().apiKeyConfigured());
     }
 }

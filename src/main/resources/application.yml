@@ -66,6 +66,9 @@ logging:
     com.jam.agent: info
 
 agent:
+  model:
+    connect-timeout: 10s
+    read-timeout: 45s
   budget:
     max-tokens-per-turn: 2000000
     max-context-tokens: 200000
