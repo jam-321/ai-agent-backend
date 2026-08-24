@@ -1,11 +1,14 @@
 package com.jam.agent;
 
 import org.mybatis.spring.annotation.MapperScan;
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
-@SpringBootApplication
+/**
+ * Agent 平台配置：由 game-app 启动时通过组件扫描加载。
+ * 原启动类改造为平台配置，避免与 game-app 的启动类重复定义 @SpringBootApplication。
+ */
+@Configuration
 @EnableScheduling
 @MapperScan({
         "com.jam.agent.agent.persistence.mapper",
@@ -16,9 +19,5 @@ import org.springframework.scheduling.annotation.EnableScheduling;
         "com.jam.agent.conversation.persistence.mapper",
         "com.jam.agent.monitoring.persistence.mapper"
 })
-public class AgentApplication {
-
-    public static void main(String[] args) {
-        SpringApplication.run(AgentApplication.class, args);
-    }
+public class AgentPlatformConfig {
 }
