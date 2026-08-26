@@ -24,9 +24,11 @@
 
 | 节点名称 | 是否为叶子节点 | 节点地址 | 说明用途 | 何时注入上下文 |
 | --- | --- | --- | --- | --- |
-| 设计稿 | 是 | `E:\ai\code\code\ai-agent-backend\docs\design.md` | 主线任务前后端设计文档。 | 需要理解架构、技术选型、里程碑或准备改造设计时读取。 |
+| 状态 | 是 | `E:\ai\code\code\ai-agent-backend\docs\状态.md` | 主线当前真相：进度、最近决策、下一步、关键约束，最前沿。 | 每次恢复主线上下文、判断当前进度、规划下一步时**最先**读取。 |
+| 文档索引 | 是 | `E:\ai\code\code\ai-agent-backend\docs\index.md` | docs 目录导航，说明各文档作用与读取优先级。 | 首次进入主线、需要定位 docs 中"当前真相/设计/环境/历史"对应文档时读取。 |
+| 架构参考 | 是 | `E:\ai\code\code\ai-agent-backend\docs\迭代历史\AI-Agent方案设计.md` | 早期"从零开发通用 Agent"的架构设计，已过时，作历史/参考。 | 回顾早期架构设计、准备远期四阶段回补时读取。 |
 | 环境信息 | 是 | `E:\ai\code\code\ai-agent-backend\docs\environment.md` | 主线任务前后端、Docker、MySQL、Redis 等本机环境配置信息。 | 需要构建、启动、连接中间件或排查环境问题时读取。 |
-| 里程碑 | 是 | `E:\ai\code\code\ai-agent-backend\docs\里程碑.md` | 主线任务当前阶段和关键成果的摘要，优先于迭代历史注入。 | 恢复主线上下文、判断当前进度或规划下一步时先读取。 |
+| 里程碑 | 是 | `E:\ai\code\code\ai-agent-backend\docs\里程碑.md` | 阶段成果归档：已达成能力与验证结果，相对稳定。 | 读过 `状态.md` 后，回顾已完成能力、确认已具备的功能时读取。 |
 | 未来规划 | 是 | `E:\ai\code\code\ai-agent-backend\docs\未来规划.md` | 主线后续阶段规划（M4 上线 + 仿 dsh 的四阶段改造路线）与现状差距。 | 规划下一步、评估改造方向、准备实施阶段 1~4 时读取。 |
 | 迭代历史 | 否 | `E:\ai\code\code\ai-agent-backend\docs\迭代历史` | 记录主线开发流程；当主线有显著推进时，主动询问用户是否记入迭代历史。 | 需要回顾决策、恢复历史上下文或准备追加迭代记录时读取目录内相关文档。 |
 
